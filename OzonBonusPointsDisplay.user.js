@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.3
 // @description  Display promo bonus points from reviews on order pages
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -113,31 +113,37 @@
                 return;
             }
 
-            const section = widget.querySelector('section');
-            if (!section) return;
+            const sections = widget.querySelectorAll('section');
+            if (sections.length === 0) return;
 
-            const container = section.querySelector('div:not([style])');
-            if (!container) return;
-
-            const productDivs = container.querySelectorAll('div');
-
-            productDivs.forEach(div => {
-                const img = div.querySelector('img');
-                if (!img?.src) return;
-
-                const filename = extractFilename(img.src);
-                if (!filename) return;
-
-                const spans = div.querySelectorAll('span.tsBody400Small');
-                if (spans.length === 0) return;
-
-                const lastSpan = spans[spans.length - 1];
-                const points = parsePromoPoints(lastSpan.textContent.trim());
-
-                if (points > 0) {
-                    promoProducts.set(filename, points);
+            for (let i = 0; i < 2; i++) {
+                if (i === 1 && sections.length === 2) {
+                    break;
                 }
-            });
+                const section = sections[i];
+                const container = section.querySelector('div:not([style])');
+                if (!container) return;
+
+                const productDivs = container.querySelectorAll('div');
+
+                productDivs.forEach(div => {
+                    const img = div.querySelector('img');
+                    if (!img?.src) return;
+
+                    const filename = extractFilename(img.src);
+                    if (!filename) return;
+
+                    const spans = div.querySelectorAll('span.tsBody400Small');
+                    if (spans.length === 0) return;
+
+                    const lastSpan = spans[spans.length - 1];
+                    const points = parsePromoPoints(lastSpan.textContent.trim());
+
+                    if (points > 0) {
+                        promoProducts.set(filename, points);
+                    }
+                });
+            }
 
             promoDataLoaded = true;
             console.log(`Loaded ${promoProducts.size} promo products`);

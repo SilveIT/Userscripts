@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.4
 // @description  Display promo bonus points from reviews on order pages
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -27,15 +27,12 @@
         orderListPoints: `
             position: absolute;
             top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
             background: rgba(0, 0, 0, 0.8);
             color: white;
             padding: 8px 16px;
             border-radius: 4px;
             font-weight: bold;
             font-size: 14px;
-            z-index: 1000;
             pointer-events: none;
             text-align: center;
             min-width: 100px;

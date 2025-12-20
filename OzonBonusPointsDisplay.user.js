@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      1.5
+// @version      1.6
 // @description  Display promo bonus points from reviews on order pages
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -237,11 +237,9 @@
                 const firstContainer = firstSection.querySelector('div:not([style])');
                 processSectionContainer(firstContainer, true);
 
-                // Process remaining sections
-                for (let i = 1; i < sections.length; i++) {
-                    const container = sections[i].querySelector('div:not([style])');
-                    processSectionContainer(container, false);
-                }
+                const secondSection = sections[1];
+                const secondContainer = secondSection.querySelector('div:not([style])');
+                processSectionContainer(secondContainer, false);
             } else {
                 // Original logic for 1 or 2 sections
                 for (let i = 0; i < Math.min(sections.length, 2); i++) {

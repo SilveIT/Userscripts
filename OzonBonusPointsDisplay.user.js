@@ -64,12 +64,10 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 16px 20px;
-            border-radius: 8px;
             font-size: 16px;
             font-weight: 500;
             text-align: center;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            border-left: 4px solid #4CAF50;
         `
     };
 

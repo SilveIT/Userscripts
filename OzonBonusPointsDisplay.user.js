@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.5
 // @description  Display promo bonus points from reviews on order pages
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -59,6 +59,17 @@
             min-width: 40px;
             text-align: center;
             white-space: nowrap;
+        `,
+        pendingNotice: `
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #4CAF50;
         `
     };
 
@@ -66,6 +77,13 @@
     const promoProducts = new Map();
     let promoDataLoaded = false;
     let isProcessingOrderDetails = false;
+
+    // Store first section data for pending reviews
+    let pendingReviewsData = {
+        productCount: 0,
+        totalPoints: 0,
+        hasPendingReviews: false
+    };
 
     /**
      * Extract filename from URL
@@ -94,6 +112,106 @@
     }
 
     /**
+     * Display pending reviews notice on orderlist page
+     */
+    function displayPendingReviewsNotice() {
+        if (!pendingReviewsData.hasPendingReviews || pendingReviewsData.productCount === 0) {
+            return;
+        }
+
+        const layoutPage = document.getElementById('layoutPage');
+        if (!layoutPage) {
+            console.log('layoutPage not found, retrying in 500ms');
+            setTimeout(displayPendingReviewsNotice, 500);
+            return;
+        }
+
+        // Remove existing notice if any
+        const existingNotice = layoutPage.querySelector('[data-pending-reviews-notice]');
+        if (existingNotice) {
+            existingNotice.remove();
+        }
+
+        // Create notice container as a link
+        const noticeLink = document.createElement('a');
+        noticeLink.href = 'https://www.ozon.ru/my/reviews/promo';
+        noticeLink.target = '_blank'; // Open in new tab
+        noticeLink.style.cssText = STYLES.pendingNotice + 'display: block; text-decoration: none; cursor: pointer;';
+        noticeLink.setAttribute('data-pending-reviews-notice', 'true');
+
+        // Add hover effect
+        noticeLink.addEventListener('mouseenter', () => {
+            noticeLink.style.opacity = '0.9';
+            noticeLink.style.transform = 'translateY(-1px)';
+        });
+
+        noticeLink.addEventListener('mouseleave', () => {
+            noticeLink.style.opacity = '1';
+            noticeLink.style.transform = 'translateY(0)';
+        });
+
+        // Create message
+        const message = document.createElement('div');
+        message.textContent = `Есть ${pendingReviewsData.productCount} товаров, ожидающих отзыв, на общую сумму ${pendingReviewsData.totalPoints} баллов.`;
+
+        noticeLink.appendChild(message);
+
+        // Insert as first child of layoutPage
+        if (layoutPage.firstChild) {
+            layoutPage.insertBefore(noticeLink, layoutPage.firstChild);
+        } else {
+            layoutPage.appendChild(noticeLink);
+        }
+    }
+
+    /**
+     * Process a product div and extract promo data
+     * @param {Element} div - Product div element
+     * @param {boolean} isPendingSection - Whether this is from the pending reviews section
+     */
+    function processProductDiv(div, isPendingSection = false) {
+        const img = div.querySelector('img');
+        if (!img?.src) return null;
+
+        const filename = extractFilename(img.src);
+        if (!filename) return null;
+
+        const spans = div.querySelectorAll('span.tsBody400Small');
+        if (spans.length === 0) return null;
+
+        const lastSpan = spans[spans.length - 1];
+        const points = parsePromoPoints(lastSpan.textContent.trim());
+
+        if (points > 0) {
+            if (isPendingSection) {
+                pendingReviewsData.productCount++;
+                pendingReviewsData.totalPoints += points;
+            }
+            return { filename, points };
+        }
+
+        return null;
+    }
+
+    /**
+     * Process a section container for promo products
+     * @param {Element} container - Section container
+     * @param {boolean} isPendingSection - Whether this is from the pending reviews section
+     */
+    function processSectionContainer(container, isPendingSection = false) {
+        if (!container) return;
+
+        const productDivs = container.querySelectorAll('div');
+
+        productDivs.forEach(div => {
+            const result = processProductDiv(div, isPendingSection);
+            if (result) {
+                promoProducts.set(result.filename, result.points);
+            }
+        });
+    }
+
+    /**
      * Fetch and parse promo products data
      */
     async function loadPromoProducts() {
@@ -111,39 +229,42 @@
             }
 
             const sections = widget.querySelectorAll('section');
-            if (sections.length === 0) return;
+            console.log(`Found ${sections.length} sections`);
 
-            for (let i = 0; i < 2; i++) {
-                if (i === 1 && sections.length === 2) {
-                    break;
+            if (sections.length === 3) {
+                // First section contains pending reviews
+                pendingReviewsData.hasPendingReviews = true;
+
+                const firstSection = sections[0];
+                const firstContainer = firstSection.querySelector('div:not([style])');
+                processSectionContainer(firstContainer, true);
+
+                // Process remaining sections
+                for (let i = 1; i < sections.length; i++) {
+                    const container = sections[i].querySelector('div:not([style])');
+                    processSectionContainer(container, false);
                 }
-                const section = sections[i];
-                const container = section.querySelector('div:not([style])');
-                if (!container) return;
-
-                const productDivs = container.querySelectorAll('div');
-
-                productDivs.forEach(div => {
-                    const img = div.querySelector('img');
-                    if (!img?.src) return;
-
-                    const filename = extractFilename(img.src);
-                    if (!filename) return;
-
-                    const spans = div.querySelectorAll('span.tsBody400Small');
-                    if (spans.length === 0) return;
-
-                    const lastSpan = spans[spans.length - 1];
-                    const points = parsePromoPoints(lastSpan.textContent.trim());
-
-                    if (points > 0) {
-                        promoProducts.set(filename, points);
+            } else {
+                // Original logic for 1 or 2 sections
+                for (let i = 0; i < Math.min(sections.length, 2); i++) {
+                    if (i === 1 && sections.length === 2) {
+                        break;
                     }
-                });
+                    const container = sections[i].querySelector('div:not([style])');
+                    processSectionContainer(container, false);
+                }
             }
 
             promoDataLoaded = true;
             console.log(`Loaded ${promoProducts.size} promo products`);
+
+            if (pendingReviewsData.hasPendingReviews) {
+                console.log(`Pending reviews: ${pendingReviewsData.productCount} products for ${pendingReviewsData.totalPoints} points`);
+                // Display notice if we're on orderlist page
+                if (window.location.pathname.includes('/my/orderlist')) {
+                    setTimeout(displayPendingReviewsNotice, 500);
+                }
+            }
 
         } catch (error) {
             console.error('Error loading promo products:', error);
@@ -165,6 +286,16 @@
     }
 
     /**
+     * Get points for an image
+     * @param {HTMLImageElement} img - Image element
+     * @returns {number} Points count or 0
+     */
+    function getPointsForImage(img) {
+        const filename = extractFilename(img.src);
+        return filename ? (promoProducts.get(filename) || 0) : 0;
+    }
+
+    /**
      * Process order list page
      */
     function processOrderList() {
@@ -179,12 +310,7 @@
                 let totalPoints = 0;
 
                 orderDiv.querySelectorAll('img').forEach(img => {
-                    if (!img.src) return;
-
-                    const filename = extractFilename(img.src);
-                    if (filename && promoProducts.has(filename)) {
-                        totalPoints += promoProducts.get(filename);
-                    }
+                    totalPoints += getPointsForImage(img);
                 });
 
                 if (totalPoints > 0) {
@@ -203,6 +329,11 @@
                 orderDiv.dataset.promoProcessed = 'true';
             });
         });
+
+        // Display pending reviews notice if needed
+        if (pendingReviewsData.hasPendingReviews) {
+            displayPendingReviewsNotice();
+        }
     }
 
     /**
@@ -222,10 +353,9 @@
                         if (img.dataset.promoPointsAdded === 'true') return;
                         img.dataset.promoPointsAdded = 'true';
 
-                        const filename = extractFilename(img.src);
-                        if (!filename || !promoProducts.has(filename)) return;
+                        const points = getPointsForImage(img);
+                        if (points === 0) return;
 
-                        const points = promoProducts.get(filename);
                         const wrapper = document.createElement('div');
                         wrapper.style.cssText = STYLES.orderDetailsWrapper;
 
@@ -261,9 +391,16 @@
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType !== Node.ELEMENT_NODE) return;
 
-                    if (node.matches('[data-widget="orderList"]') || 
+                    if (node.matches('[data-widget="orderList"]') ||
                         node.querySelector('[data-widget="orderList"]')) {
                         processOrderList();
+                    }
+
+                    // Check if layoutPage was added
+                    if (node.matches('#layoutPage') || node.querySelector('#layoutPage')) {
+                        if (pendingReviewsData.hasPendingReviews) {
+                            displayPendingReviewsNotice();
+                        }
                     }
                 });
             }

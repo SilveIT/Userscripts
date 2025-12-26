@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ozon Bonus Tools
 // @namespace    http://tampermonkey.net/
-// @version      2.2
+// @version      2.3
 // @description  Advanced product filter and highlighting
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/search/*
@@ -404,9 +404,7 @@
         //console.log(`✅ Restored ${filteredProducts.length} products`);
     }
 
-    // Function to highlight bonus points (works on ALL pages)
     function highlightBonusPoints() {
-        // Find all elements that have text containing "баллов за отзыв"
         const xpath = "//div[contains(text(), 'баллов за отзыв')]";
         const results = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
 
@@ -418,13 +416,36 @@
             const match = text.match(/(\d+)\s*баллов за отзыв/i);
             if (match) {
                 const points = parseInt(match[1], 10);
+
+                // Make the element interactive
+                node.style.pointerEvents = 'auto';
+
+                // Use mouseover/mouseout instead of mouseenter/mouseleave
+                node.addEventListener('mouseover', function() {
+                    const parent = this.parentElement.parentElement;
+                    if (parent) {
+                        parent.style.transition = 'opacity 0.3s ease, visibility 0.3s ease';
+                        parent.style.opacity = '0';
+                        parent.style.visibility = 'hidden';
+                    }
+                });
+
+                node.addEventListener('mouseout', function() {
+                    const parent = this.parentElement.parentElement;
+                    if (parent) {
+                        parent.style.opacity = '1';
+                        parent.style.visibility = 'visible';
+                    }
+                });
+
                 if (points > 200) {
                     node.style.color = 'deeppink';
                     node.style.textEmphasis = '"❤️"';
                     node.style.fontWeight = 'bold';
                     node.style['-webkit-writing-mode'] = 'vertical-lr';
-                    node.classList.add('highlighted-bonus');
                 }
+
+                node.classList.add('highlighted-bonus');
             }
         }
     }

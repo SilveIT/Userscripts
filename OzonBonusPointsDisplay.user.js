@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      1.6
-// @description  Display promo bonus points from reviews on order pages
+// @version      1.7
+// @description  Display promo bonus points from reviews on order pages and calculate totals on promo page
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
 // @match        *://www.ozon.ru/my/orderdetails/?order=*
+// @match        *://www.ozon.ru/my/reviews/promo*
 // @homepageURL  https://github.com/SilveIT/Userscripts
 // @updateURL    https://github.com/SilveIT/Userscripts/raw/refs/heads/main/OzonBonusPointsDisplay.user.js
 // @downloadURL  https://github.com/SilveIT/Userscripts/raw/refs/heads/main/OzonBonusPointsDisplay.user.js
@@ -68,6 +69,16 @@
             font-weight: 500;
             text-align: center;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        `,
+        promoPageTotal: `
+            color: #005bff;
+            font-weight: bold;
+            margin-left: 10px;
+            padding: 2px 8px;
+            background: #f0f9ff;
+            border-radius: 4px;
+            border: 1px solid #d0e7ff;
+            white-space: nowrap;
         `
     };
 
@@ -82,6 +93,9 @@
         totalPoints: 0,
         hasPendingReviews: false
     };
+
+    // Track processed sections on promo page
+    const processedSections = new Set();
 
     /**
      * Extract filename from URL
@@ -377,6 +391,80 @@
     }
 
     /**
+     * Process promo page sections
+     */
+    function processPromoPage() {
+        const widget = document.querySelector('[data-widget="webPromoReviewProducts"]');
+        if (!widget) {
+            console.log('Promo widget not found on page');
+            return;
+        }
+
+        const sections = widget.querySelectorAll('section');
+        console.log(`Found ${sections.length} sections on promo page`);
+
+        sections.forEach((section, index) => {
+            // Skip if already processed
+            if (processedSections.has(section)) {
+                return;
+            }
+
+            // Find the headline in this section
+            const headline = section.querySelector('span.tsHeadline600Medium');
+            if (!headline) {
+                console.log(`No headline found in section ${index}`);
+                return;
+            }
+
+            // Calculate total points for this section
+            let totalPoints = 0;
+            const productDivs = section.querySelector('div:not([style])').querySelectorAll('div');
+
+            let cnt = 0;
+
+            productDivs.forEach(div => {
+                const img = div.querySelector('img');
+                if (!img?.src) return;
+
+                const filename = extractFilename(img.src);
+                if (!filename) return;
+
+                const spans = div.querySelectorAll('span.tsBody400Small');
+                if (spans.length === 0) return;
+
+                const lastSpan = spans[spans.length - 1];
+                const points = parsePromoPoints(lastSpan.textContent.trim());
+
+                if (spans.length > 0) {
+                    const lastSpan = spans[spans.length - 1];
+                    const points = parsePromoPoints(lastSpan.textContent.trim());
+                    if (points > 0)
+                    {
+                        totalPoints += points;
+                        cnt++;
+                    }
+                }
+            });
+            console.log(`${index} section has ${cnt} products`);
+
+            // Create total points display
+            const totalSpan = document.createElement('span');
+            totalSpan.style.cssText = STYLES.promoPageTotal;
+            totalSpan.textContent = `Всего: ${totalPoints} баллов`;
+
+            // Add to headline if not already added
+            if (!headline.querySelector('[data-promo-total]')) {
+                headline.appendChild(totalSpan);
+                totalSpan.setAttribute('data-promo-total', 'true');
+            }
+
+            // Mark section as processed
+            processedSections.add(section);
+            console.log(`Section ${index} processed: ${totalPoints} total points`);
+        });
+    }
+
+    /**
      * Setup MutationObserver for order list page
      */
     function setupOrderListObserver() {
@@ -453,21 +541,28 @@
      * Main initialization function
      */
     async function init() {
-        await loadPromoProducts();
-
-        if (!promoDataLoaded || promoProducts.size === 0) {
-            console.log('No promo products found or failed to load');
-            return;
-        }
-
         const path = window.location.pathname;
 
-        if (path.includes('/my/orderlist')) {
-            processOrderList();
-            setupOrderListObserver();
-        } else if (path.includes('/my/orderdetails/')) {
-            setTimeout(processOrderDetails, CONFIG.initialLoadDelay);
-            setupOrderDetailsObserver();
+        if (path.includes('/my/reviews/promo')) {
+            // On promo page, process directly
+            console.log('Initializing for promo page');
+            setTimeout(processPromoPage, CONFIG.initialLoadDelay);
+        } else {
+            // On order pages, load promo data first
+            await loadPromoProducts();
+
+            if (!promoDataLoaded || promoProducts.size === 0) {
+                console.log('No promo products found or failed to load');
+                return;
+            }
+
+            if (path.includes('/my/orderlist')) {
+                processOrderList();
+                setupOrderListObserver();
+            } else if (path.includes('/my/orderdetails/')) {
+                setTimeout(processOrderDetails, CONFIG.initialLoadDelay);
+                setupOrderDetailsObserver();
+            }
         }
     }
 

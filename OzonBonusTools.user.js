@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Ozon Bonus Tools
 // @namespace    http://tampermonkey.net/
-// @version      2.3
-// @description  Advanced product filter and highlighting
+// @version      2.4
+// @description  Advanced product filter
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/search/*
 // @match        *://www.ozon.ru/category/*
@@ -417,27 +417,6 @@
             if (match) {
                 const points = parseInt(match[1], 10);
 
-                // Make the element interactive
-                node.style.pointerEvents = 'auto';
-
-                // Use mouseover/mouseout instead of mouseenter/mouseleave
-                node.addEventListener('mouseover', function() {
-                    const parent = this.parentElement.parentElement;
-                    if (parent) {
-                        parent.style.transition = 'opacity 0.3s ease, visibility 0.3s ease';
-                        parent.style.opacity = '0';
-                        parent.style.visibility = 'hidden';
-                    }
-                });
-
-                node.addEventListener('mouseout', function() {
-                    const parent = this.parentElement.parentElement;
-                    if (parent) {
-                        parent.style.opacity = '1';
-                        parent.style.visibility = 'visible';
-                    }
-                });
-
                 if (points > 200) {
                     node.style.color = 'deeppink';
                     node.style.textEmphasis = '"❤️"';
@@ -450,24 +429,57 @@
         }
     }
 
-    // Function to start highlight observer (works on ALL pages)
-    function startHighlightObserver() {
+    function addAutoHide() {
+        const elements = document.querySelectorAll('#contentScrollPaginator .tsBodyControl400Small')
+        for (let i = 0; i < elements.length; i++) {
+            const node = elements[i].parentNode;
+            if (!node || node.classList.contains('autohide') || node.parentNode?.parentNode?.nodeName !== 'SECTION') continue;
+
+            // Make the element interactive
+            node.style.pointerEvents = 'auto';
+
+            // Use mouseover/mouseout instead of mouseenter/mouseleave
+            node.addEventListener('mouseover', function() {
+                const parent = this.parentElement.parentElement;
+                if (parent) {
+                    parent.style.transition = 'opacity 0.3s ease, visibility 0.3s ease';
+                    parent.style.opacity = '0';
+                    parent.style.visibility = 'hidden';
+                }
+            });
+
+            node.addEventListener('mouseout', function() {
+                const parent = this.parentElement.parentElement;
+                if (parent) {
+                    parent.style.opacity = '1';
+                    parent.style.visibility = 'visible';
+                }
+            });
+
+            node.classList.add('autohide');
+        }
+    }
+
+    // Function to start element customizer observer (works on ALL pages)
+    function startElementCustomizerObserver() {
         if (!document.body) {
-            document.addEventListener('DOMContentLoaded', startHighlightObserver);
+            document.addEventListener('DOMContentLoaded', startElementCustomizerObserver);
             return;
         }
 
-        const highlightObserver = new MutationObserver(() => {
+        const customizerObserver = new MutationObserver(() => {
             setTimeout(highlightBonusPoints, 100);
+            setTimeout(addAutoHide, 100);
         });
 
-        highlightObserver.observe(document.body, {
+        customizerObserver.observe(document.body, {
             childList: true,
             subtree: true
         });
 
-        // Initial highlight
+        // Initial highlight and autohide
         setTimeout(highlightBonusPoints, 1500);
+        setTimeout(addAutoHide, 1500);
     }
 
     // Main initialization
@@ -499,8 +511,8 @@
             addControlButtons();
         }
 
-        // ALWAYS run highlight functionality on all pages
-        startHighlightObserver();
+        // ALWAYS run element customizer functionality on all pages
+        startElementCustomizerObserver();
     }
 
     // Start initialization

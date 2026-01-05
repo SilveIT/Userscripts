@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Ozon Bonus Tools
 // @namespace    http://tampermonkey.net/
-// @version      2.4
 // @description  Advanced product filter
+// @version      2.5
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/search/*
 // @match        *://www.ozon.ru/category/*
@@ -36,6 +36,53 @@
         innerHTML: null,
         insertAdjacentHTML: null
     };
+
+    // Function to check if current page is /search/* page
+    function isSearchPage() {
+        return window.location.pathname.includes('/search/');
+    }
+
+    // Function to check if current page is /category/ page
+    function isCategoryPage() {
+        return window.location.pathname.includes('/category/');
+    }
+
+    // Function to handle "По всем категориям" checkbox action
+    function handleAllCategoriesChange(isChecked) {
+        const currentUrl = new URL(window.location.href);
+        const currentParams = new URLSearchParams(currentUrl.search);
+
+        if (isChecked) {
+            // When checked - go to search page with parameters
+            const searchUrl = new URL('https://www.ozon.ru/search/');
+
+            // Add current parameters
+            for (const [key, value] of currentParams.entries()) {
+                // Don't overwrite the special parameters we're about to add
+                if (key !== 'category_was_predicted' && key !== 'deny_category_prediction') {
+                    searchUrl.searchParams.append(key, value);
+                }
+            }
+
+            // Add required parameters
+            searchUrl.searchParams.set('category_was_predicted', 'true');
+            searchUrl.searchParams.set('deny_category_prediction', 'true');
+
+            // Change location
+            window.location.href = searchUrl.toString();
+        } else {
+            // When unchecked - remove parameters and go back
+            currentParams.delete('category_was_predicted');
+            currentParams.delete('deny_category_prediction');
+
+            // Update URL
+            currentUrl.search = currentParams.toString();
+
+            // If we're on search page and removed the parameters, we might want to go back to category page
+            // But the requirement says just remove parameters, so we'll stay on current page
+            window.location.href = currentUrl.toString();
+        }
+    }
 
     // Function to extract bonus points from element
     function getBonusPointsFromElement(element) {
@@ -198,6 +245,12 @@
         return urlParams.has('has_points_from_reviews');
     }
 
+    // Function to check if URL has category prediction parameters
+    function hasCategoryPredictionParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.has('category_was_predicted') && urlParams.has('deny_category_prediction');
+    }
+
     // Function to update filter checkbox state based on URL
     function updateFilterCheckboxState() {
         const hasReviewsFilter = hasPointsFromReviewsFilter();
@@ -239,6 +292,21 @@
                     isFilterActive = true;
                     setTimeout(filterExistingProducts, 100);
                 }
+            }
+        }
+    }
+
+    // Function to update all categories checkbox state
+    function updateAllCategoriesCheckboxState() {
+        const allCategoriesCheckbox = document.querySelector('.all-categories-checkbox');
+
+        if (allCategoriesCheckbox) {
+            if (isCategoryPage()) {
+                // On category page - start state is false
+                allCategoriesCheckbox.checked = false;
+            } else if (isSearchPage()) {
+                // On search page - check if we have the prediction parameters
+                allCategoriesCheckbox.checked = hasCategoryPredictionParams();
             }
         }
     }
@@ -286,6 +354,21 @@
       </div>
     </div>
   </div>
+
+  <div id="allCategoriesButton">
+    <div style="display: flex;">
+      <div>
+        <label>
+          <input type="checkbox" class="all-categories-checkbox">
+        </label>
+      </div>
+      <div>
+        <div>
+          <span style="font-size: 16px; font-weight: 600; letter-spacing: 0; line-height: 20px;">По всем категориям</span>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>`;
 
             const temp = document.createElement('div');
@@ -306,10 +389,14 @@
             // Get checkboxes
             const urlCheckbox = buttons.querySelector('.review-toggle-checkbox');
             const filterCheckbox = buttons.querySelector('.dom-filter-checkbox');
+            const allCategoriesCheckbox = buttons.querySelector('.all-categories-checkbox');
 
             // Set initial checkbox state for URL filter
             const hasReviewsFilter = hasPointsFromReviewsFilter();
             urlCheckbox.checked = hasReviewsFilter;
+
+            // Set initial state for all categories checkbox
+            updateAllCategoriesCheckboxState();
 
             // Initialize DOM filter checkbox state
             updateFilterCheckboxState();
@@ -347,9 +434,15 @@
                 console.log(`Filter ${isFilterActive ? 'activated' : 'deactivated'}`);
             });
 
-            // Observe URL changes to update checkbox state
+            // Event listener for All Categories checkbox
+            allCategoriesCheckbox.addEventListener('change', function() {
+                handleAllCategoriesChange(this.checked);
+            });
+
+            // Observe URL changes to update checkbox states
             const urlObserver = new MutationObserver(() => {
                 updateFilterCheckboxState();
+                updateAllCategoriesCheckboxState();
             });
 
             // Start observing URL changes when body is available
@@ -537,6 +630,8 @@
             }
         },
         highlightBonusPoints: highlightBonusPoints,
-        hasPointsFromReviewsFilter: hasPointsFromReviewsFilter
+        hasPointsFromReviewsFilter: hasPointsFromReviewsFilter,
+        isSearchPage: isSearchPage(),
+        isCategoryPage: isCategoryPage()
     };
 })();

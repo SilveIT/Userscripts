@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      1.7
+// @version      1.8
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -418,9 +418,12 @@
 
             // Calculate total points for this section
             let totalPoints = 0;
+            let totalPointsPending = 0;
             const productDivs = section.querySelector('div:not([style])').querySelectorAll('div');
 
             let cnt = 0;
+            let cntPending = 0;
+            let isReviewedSection = false;
 
             productDivs.forEach(div => {
                 const img = div.querySelector('img');
@@ -433,15 +436,20 @@
                 if (spans.length === 0) return;
 
                 const lastSpan = spans[spans.length - 1];
-                const points = parsePromoPoints(lastSpan.textContent.trim());
+                const pointsText = lastSpan.textContent.trim();
+                const points = parsePromoPoints(pointsText);
 
-                if (spans.length > 0) {
-                    const lastSpan = spans[spans.length - 1];
-                    const points = parsePromoPoints(lastSpan.textContent.trim());
-                    if (points > 0)
-                    {
-                        totalPoints += points;
-                        cnt++;
+                if (!isReviewedSection && pointsText.indexOf('Начисл') >= 0) {
+                    isReviewedSection = true;
+                }
+
+                if (points > 0)
+                {
+                    cnt++;
+                    totalPoints += points;
+                    if (isReviewedSection && pointsText.indexOf('Начислим') >= 0) {
+                        cntPending++;
+                        totalPointsPending += points;
                     }
                 }
             });
@@ -450,7 +458,7 @@
             // Create total points display
             const totalSpan = document.createElement('span');
             totalSpan.style.cssText = STYLES.promoPageTotal;
-            totalSpan.textContent = `Всего: ${totalPoints} баллов`;
+            totalSpan.textContent = isReviewedSection ? `Всего: ${totalPoints}Б \(${cnt} шт.\). Начислят: ${totalPointsPending}Б \(${cntPending} шт.\)` : `Всего: ${totalPoints}Б \(${cnt} шт.\)`;
 
             // Add to headline if not already added
             if (!headline.querySelector('[data-promo-total]')) {

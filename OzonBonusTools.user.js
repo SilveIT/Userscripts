@@ -2,7 +2,7 @@
 // @name         Ozon Bonus Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced product filter
-// @version      2.6
+// @version      2.7
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/search/*
 // @match        *://www.ozon.ru/category/*
@@ -403,7 +403,7 @@
 
             // Create control buttons
             const buttonHTML = `
-<div id="bonusFilterControls" style="display: inline-flex; align-items: center; gap: 10px; margin-left: 10px; min-width: 700px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+<div id="bonusFilterControls" style="display: inline-flex; align-items: center; gap: 10px; margin-left: 10px; min-width: 700px; font-family: 'Onest', arial, sans-serif;">
   <style>
     .ozon-toggle {
       position: relative;
@@ -418,7 +418,7 @@
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
-      font-size: 12px;
+      font-size: 13px;
       user-select: none;
       min-height: 28px;
     }
@@ -490,11 +490,11 @@
       align-items: center;
       gap: 4px;
       min-height: 28px;
+      font-family: 'Onest', arial, sans-serif;
     }
 
     .parse-queries-button:hover {
-      background: #0050e0;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      background: #1669ff;
     }
   </style>
 

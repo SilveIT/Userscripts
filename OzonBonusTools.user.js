@@ -2,7 +2,7 @@
 // @name         Ozon Bonus Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced product filter
-// @version      2.5
+// @version      2.6
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/search/*
 // @match        *://www.ozon.ru/category/*
@@ -19,6 +19,9 @@
     'use strict';
 
     const saveFilterToLocalStorage = false;
+
+    // Configuration for query parsing
+    const QUERY_SEPARATORS = ['\r\n', '\n', ';', '; '];
 
     // Check if we're on a search/category/seller page
     const isFilterablePage =
@@ -81,6 +84,82 @@
             // If we're on search page and removed the parameters, we might want to go back to category page
             // But the requirement says just remove parameters, so we'll stay on current page
             window.location.href = currentUrl.toString();
+        }
+    }
+
+    // Function to parse queries from clipboard text
+    function parseQueriesFromClipboard(text) {
+        if (!text || typeof text !== 'string') {
+            return [];
+        }
+
+        let normalizedText = text;
+
+        // Replace all separators with a common separator
+        for (const separator of QUERY_SEPARATORS) {
+            normalizedText = normalizedText.split(separator).join('|');
+        }
+
+        // Split by the common separator and filter out empty entries
+        return normalizedText.split('|')
+            .map(query => query.trim())
+            .filter(query => query.length > 0 && !/^\s+$/.test(query));
+    }
+
+    // Function to handle parsing queries from clipboard
+    async function handleParseQueriesFromClipboard() {
+        try {
+            // Read text from clipboard
+            const clipboardText = await navigator.clipboard.readText();
+
+            if (!clipboardText) {
+                alert('Не обнаружено скопированного текста.');
+                return;
+            }
+
+            // Parse queries
+            const queries = parseQueriesFromClipboard(clipboardText);
+
+            if (queries.length === 0) {
+                alert('Не обнаружено правильных запросов.\n' +
+                      'Запросы должны быть разделены на строки или через \';\'.');
+                return;
+            }
+
+            // Confirm with user
+            const shouldProceed = confirm(
+                `Найдено ${queries.length} запросов:\n\n` +
+                queries.slice(0, 5).map((q, i) => `${i + 1}. ${q}`).join('\n') +
+                (queries.length > 5 ? `\n... и ${queries.length - 5} ещё` : '') +
+                '\n\nОткрыть в новых вкладках?'
+            );
+
+            if (!shouldProceed) {
+                return;
+            }
+
+            // Get current URL parameters
+            const currentUrl = new URL(window.location.href);
+            const currentParams = new URLSearchParams(currentUrl.search);
+
+            // For each query, open a new tab
+            for (const query of queries) {
+                const searchUrl = new URL('https://www.ozon.ru/search/');
+
+                // Copy all current parameters
+                for (const [key, value] of currentParams.entries()) {
+                    searchUrl.searchParams.append(key, value);
+                }
+
+                // Replace text parameter with current query
+                searchUrl.searchParams.set('text', query);
+
+                // Open in new tab
+                window.open(searchUrl.toString(), '_blank');
+            }
+        } catch (error) {
+            console.error('Error reading clipboard:', error);
+            alert('Не удалось прочитать из буфера обмена. Проверьте разрешения.');
         }
     }
 
@@ -324,51 +403,122 @@
 
             // Create control buttons
             const buttonHTML = `
-<div id="bonusFilterControls" style="display: inline-flex; align-items: center; gap: 10px; margin-left: 10px;">
-  <div id="customReviewToggleButton">
-    <div style="display: flex;">
-      <div>
-        <label>
-          <input type="checkbox" class="review-toggle-checkbox">
-        </label>
-      </div>
-      <div>
-        <div>
-          <span style="font-size: 16px; font-weight: 600; letter-spacing: 0; line-height: 20px;">Баллы за отзывы</span>
-        </div>
-      </div>
-    </div>
-  </div>
+<div id="bonusFilterControls" style="display: inline-flex; align-items: center; gap: 10px; margin-left: 10px; min-width: 700px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <style>
+    .ozon-toggle {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      background-color: #fff;
+      color: #333;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 12px;
+      user-select: none;
+      min-height: 28px;
+    }
 
-  <div id="domFilterButton">
-    <div style="display: flex;">
-      <div>
-        <label>
-          <input type="checkbox" class="dom-filter-checkbox">
-        </label>
-      </div>
-      <div>
-        <div>
-          <span style="font-size: 16px; font-weight: 600; letter-spacing: 0; line-height: 20px;">Скрыть ≤200 баллов</span>
-        </div>
-      </div>
-    </div>
-  </div>
+    .ozon-toggle .checkbox-box {
+      position: relative;
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
 
-  <div id="allCategoriesButton">
-    <div style="display: flex;">
-      <div>
-        <label>
-          <input type="checkbox" class="all-categories-checkbox">
-        </label>
-      </div>
-      <div>
-        <div>
-          <span style="font-size: 16px; font-weight: 600; letter-spacing: 0; line-height: 20px;">По всем категориям</span>
-        </div>
-      </div>
-    </div>
-  </div>
+    .ozon-toggle .checkbox-box::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 4px;
+      border: 1px solid #c0c0c0;
+      background: #fff;
+      transition: all 0.2s;
+      box-sizing: border-box;
+    }
+
+    .ozon-toggle input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .ozon-toggle input:checked + .checkbox-box::before {
+      background: #007bff;
+      border-color: #007bff;
+    }
+
+    .ozon-toggle input:checked + .checkbox-box::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='white'%3E%3Cpath fill-rule='evenodd' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' clip-rule='evenodd'/%3E%3C/svg%3E");
+      background-size: contain;
+      background-repeat: no-repeat;
+    }
+
+    .ozon-toggle:hover {
+      border-color: #007bff;
+      background-color: #f8fafd;
+    }
+
+    .parse-queries-button {
+      padding: 5px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #005bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 28px;
+    }
+
+    .parse-queries-button:hover {
+      background: #0050e0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+  </style>
+
+  <label class="ozon-toggle">
+    <input type="checkbox" id="reviewToggleCheckbox" class="review-toggle-checkbox" checked>
+    <span class="checkbox-box"></span>
+    <span>Баллы за отзывы</span>
+  </label>
+
+  <label class="ozon-toggle">
+    <input type="checkbox" id="domFilterCheckbox" class="dom-filter-checkbox">
+    <span class="checkbox-box"></span>
+    <span>Скрыть ≤200 баллов</span>
+  </label>
+
+  <label class="ozon-toggle">
+    <input type="checkbox" id="allCategoriesCheckbox" class="all-categories-checkbox" checked>
+    <span class="checkbox-box"></span>
+    <span>По всем категориям</span>
+  </label>
+
+  <button type="button" class="parse-queries-button">
+    📋 Запросы из буфера
+  </button>
 </div>`;
 
             const temp = document.createElement('div');
@@ -382,6 +532,8 @@
             wrapper.style.alignItems = 'center';
             wrapper.style.gap = '10px';
 
+            targetDiv.parentNode.style['min-width'] = '100%';
+            targetDiv.parentNode.style['margin-bottom'] = '0px';
             targetDiv.parentNode.insertBefore(wrapper, targetDiv);
             wrapper.appendChild(targetDiv);
             wrapper.appendChild(buttons);
@@ -390,6 +542,7 @@
             const urlCheckbox = buttons.querySelector('.review-toggle-checkbox');
             const filterCheckbox = buttons.querySelector('.dom-filter-checkbox');
             const allCategoriesCheckbox = buttons.querySelector('.all-categories-checkbox');
+            const parseQueriesButton = buttons.querySelector('.parse-queries-button');
 
             // Set initial checkbox state for URL filter
             const hasReviewsFilter = hasPointsFromReviewsFilter();
@@ -438,6 +591,9 @@
             allCategoriesCheckbox.addEventListener('change', function() {
                 handleAllCategoriesChange(this.checked);
             });
+
+            // Event listener for Parse Queries button
+            parseQueriesButton.addEventListener('click', handleParseQueriesFromClipboard);
 
             // Observe URL changes to update checkbox states
             const urlObserver = new MutationObserver(() => {
@@ -632,6 +788,8 @@
         highlightBonusPoints: highlightBonusPoints,
         hasPointsFromReviewsFilter: hasPointsFromReviewsFilter,
         isSearchPage: isSearchPage(),
-        isCategoryPage: isCategoryPage()
+        isCategoryPage: isCategoryPage(),
+        parseQueriesFromClipboard: parseQueriesFromClipboard,
+        handleParseQueriesFromClipboard: handleParseQueriesFromClipboard
     };
 })();

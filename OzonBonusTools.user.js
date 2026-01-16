@@ -2,7 +2,7 @@
 // @name         Ozon Bonus Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced product filter
-// @version      2.7
+// @version      2.8
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/search/*
 // @match        *://www.ozon.ru/category/*
@@ -197,12 +197,8 @@
     function shouldFilterElement(element) {
         if (!isFilterActive || !isFilterablePage) return false;
 
-        // Quick check if this might be a product element
-        const isProductElement =
-            element.classList && element.classList.contains('tile-root') ||
-            element.querySelector && element.querySelector('.tile-root') ||
-            (element.getAttribute && element.getAttribute('data-widget') &&
-             element.getAttribute('data-widget').includes('tile'));
+        // Quick check if this might be a product element TODO
+        const isProductElement = element.classList?.contains('tile-root');
 
         if (!isProductElement) return false;
 
@@ -260,7 +256,7 @@
                         tempDiv.innerHTML = html;
 
                         // Find all product elements
-                        const products = tempDiv.querySelectorAll('.tile-root, [data-widget*="tile"]');
+                        const products = tempDiv.querySelectorAll('[data-widget^="tile"] > .tile-root');
                         let filteredCount = 0;
 
                         products.forEach(product => {
@@ -296,7 +292,7 @@
                 tempDiv.innerHTML = html;
 
                 // Find all product elements
-                const products = tempDiv.querySelectorAll('.tile-root, [data-widget*="tile"]');
+                const products = tempDiv.querySelectorAll('[data-widget^="tile"] > .tile-root');
                 let filteredCount = 0;
 
                 products.forEach(product => {
@@ -622,7 +618,7 @@
         if (!isFilterActive || !isFilterablePage) return;
 
         //console.log('🔍 Filtering existing products...');
-        const products = document.querySelectorAll('.tile-root, [data-widget*="tile"]');
+        const products = document.querySelectorAll('[data-widget^="tile"] > .tile-root');
         let filteredCount = 0;
 
         products.forEach(product => {

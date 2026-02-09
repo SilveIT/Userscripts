@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      2.1
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -189,7 +189,7 @@
         const filename = extractFilename(img.src);
         if (!filename) return null;
 
-        const spans = div.querySelectorAll('span.tsBody400Small');
+        const spans = div.querySelectorAll('span.tsBody400Small, span.tsCompact400Small');
         if (spans.length === 0) return null;
 
         const lastSpan = spans[spans.length - 1];
@@ -433,7 +433,7 @@
                 const filename = extractFilename(img.src);
                 if (!filename) return;
 
-                const spans = div.querySelectorAll('span.tsBody400Small');
+                const spans = div.querySelectorAll('span.tsBody400Small, span.tsCompact400Small');
                 if (spans.length === 0) return;
 
                 const lastSpan = spans[spans.length - 1];

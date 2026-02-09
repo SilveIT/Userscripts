@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters
-// @version      2.9
+// @version      2.10
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -25,7 +25,7 @@
         window.location.pathname.includes('/seller/');
 
     // Check if we're on the order list page
-    const isOrderListPage = window.location.pathname.includes('/my/orderlist/');
+    const isOrderListPage = window.location.pathname.includes('/my/orderlist');
 
     // Flag to track if filtering is active (only on search/category/seller pages)
     let isFilterActive = false;

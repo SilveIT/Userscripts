@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      2.1
+// @version      2.2
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -70,6 +70,7 @@
             font-weight: 500;
             text-align: center;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-height: 40px;
         `,
         promoPageTotal: `
             color: #005bff;
@@ -224,9 +225,6 @@
         });
     }
 
-    /**
-     * Fetch and parse promo products data
-     */
     async function loadPromoProducts() {
         try {
             console.log('Fetching promo products...');
@@ -238,33 +236,44 @@
             const widget = doc.querySelector('[data-widget="webPromoReviewProducts"]');
             if (!widget) {
                 console.log('Promo widget not found');
-                return;
+                return false;
             }
 
             const sections = widget.querySelectorAll('section');
             console.log(`Found ${sections.length} sections`);
 
-            if (sections.length === 3) {
-                // First section contains pending reviews
-                pendingReviewsData.hasPendingReviews = true;
+            // Reset pending state – will be set to true if "Оцените сейчас" section is found
+            pendingReviewsData.hasPendingReviews = false;
 
-                const firstSection = sections[0];
-                const firstContainer = firstSection.querySelector('div:not([style])');
-                processSectionContainer(firstContainer, true);
+            // Process each section dynamically based on its heading text
+            sections.forEach(section => {
+                // Get the first meaningful text content (usually from a heading)
+                const text = section.textContent.trim().toLowerCase();
 
-                const secondSection = sections[1];
-                const secondContainer = secondSection.querySelector('div:not([style])');
-                processSectionContainer(secondContainer, false);
-            } else {
-                // Original logic for 1 or 2 sections
-                for (let i = 0; i < Math.min(sections.length, 2); i++) {
-                    if (i === 1 && sections.length === 2) {
-                        break;
+                if (text.startsWith('оцените сейчас')) {
+                    console.log('Found pending reviews section');
+                    pendingReviewsData.hasPendingReviews = true;
+
+                    const container = section.querySelector('div:not([style])');
+                    if (container) {
+                        processSectionContainer(container, true);
                     }
-                    const container = sections[i].querySelector('div:not([style])');
-                    processSectionContainer(container, false);
                 }
-            }
+                else if (text.startsWith('оцените после')) {
+                    console.log('Found plain promo section');
+                    const container = section.querySelector('div:not([style])');
+                    if (container) {
+                        processSectionContainer(container, false);
+                    }
+                }
+                else if (text.startsWith('оценённые')) {
+                    console.log('Ignoring reviewed section');
+                    // Do nothing – not processed
+                }
+                else {
+                    console.log('Unknown section type, skipping');
+                }
+            });
 
             promoDataLoaded = true;
             console.log(`Loaded ${promoProducts.size} promo products`);
@@ -279,7 +288,9 @@
 
         } catch (error) {
             console.error('Error loading promo products:', error);
+            return false;
         }
+        return true;
     }
 
     /**
@@ -424,7 +435,8 @@
 
             let cnt = 0;
             let cntPending = 0;
-            let isReviewedSection = false;
+            const sectionText = section.textContent.trim().toLowerCase();
+            let isReviewedSection = sectionText.startsWith('оценённые');
 
             productDivs.forEach(div => {
                 const img = div.querySelector('img');
@@ -437,18 +449,14 @@
                 if (spans.length === 0) return;
 
                 const lastSpan = spans[spans.length - 1];
-                const pointsText = lastSpan.textContent.trim();
+                const pointsText = lastSpan.textContent.trim().toLowerCase();
                 const points = parsePromoPoints(pointsText);
-
-                if (!isReviewedSection && pointsText.indexOf('Начисл') >= 0) {
-                    isReviewedSection = true;
-                }
 
                 if (points > 0)
                 {
                     cnt++;
                     totalPoints += points;
-                    if (isReviewedSection && pointsText.indexOf('Начислим') >= 0) {
+                    if (isReviewedSection && pointsText.startsWith('начислим')) {
                         cntPending++;
                         totalPointsPending += points;
                     }
@@ -558,7 +566,19 @@
             setTimeout(processPromoPage, CONFIG.initialLoadDelay);
         } else {
             // On order pages, load promo data first
-            await loadPromoProducts();
+            for (let i = 0; i < 3; i++) {
+                let loaded = await loadPromoProducts();
+                if (loaded) {
+                    console.log(`Promo page loaded with ${i + 1} tries.`)
+                    break;
+                }
+
+                // Add delay before next retry
+                if (i < 2) { // Don't delay after last attempt
+                    console.log(`Retry ${i + 1} failed, waiting 500ms...`);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
 
             if (!promoDataLoaded || promoProducts.size === 0) {
                 console.log('No promo products found or failed to load');

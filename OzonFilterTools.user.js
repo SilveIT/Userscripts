@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
-// @description  Advanced Ozon filters
-// @version      2.10
+// @description  Advanced Ozon filters + order list sorting + preload all orders button
+// @version      3.0
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -161,9 +161,36 @@
                 font-family: 'Onest', arial, sans-serif;
             }
 
-            .order-filter-container {
-                margin: 0 0 10px 0;
-                padding: 0;
+            .order-list-controls {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                margin: 0 0 10px 10px;
+                font-family: 'Onest', arial, sans-serif;
+            }
+
+            .order-sort-select {
+                padding: 7px 8px;
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                background-color: #fff;
+                font-size: 13px;
+                cursor: pointer;
+                min-height: 28px;
+                font-family: 'Onest', arial, sans-serif;
+                font-weight: 600;
+                color: #333;
+                transition: all 0.2s ease;
+            }
+
+            .order-sort-select:hover {
+                border-color: #005bff;
+            }
+
+            .sort-label {
+                font-size: 13px;
+                font-weight: 600;
+                color: #333;
                 font-family: 'Onest', arial, sans-serif;
             }
         `;
@@ -217,84 +244,211 @@
         });
     }
 
-    // Function to add order filter checkbox
-    function addOrderFilterCheckbox() {
+    // ==================== Order list sorting ====================
+    let orderSortEnabled = false;
+    let originalParentDisplay = null;
+    const sectionSelector = 'section[data-widget="orderList"]';
+    const orderCardSelector = `${sectionSelector} > *`;
+
+    // Extract numeric order number from an order card
+    function getOrderNumber(card) {
+        const titleEl = card.querySelector('.tsBodyControl300XSmall[title]');
+        if (!titleEl) return 0;
+        const text = titleEl.innerText || '';
+        const digits = text.replace(/\D/g, '');
+        return parseInt(digits, 10) || 0;
+    }
+
+    // Core function to apply sorting styles and order values
+    function applySorting() {
+        const parent = document.querySelector('div[data-widget="paginator"] > div');
+        if (!parent) return;
+
+        // Ensure parent is a flex container
+        if (originalParentDisplay === null) {
+            originalParentDisplay = window.getComputedStyle(parent).display;
+        }
+        parent.style.display = 'flex';
+        parent.style.flexDirection = 'column';
+
+        // Process each section: only make visible sections "contents"
+        document.querySelectorAll(sectionSelector).forEach(section => {
+            // Skip if section is hidden by filter
+            if (section.dataset.sectionHiddenByFilter === 'true' || section.style.display === 'none') {
+                return;
+            }
+
+            // Store original display if not already stored
+            if (!section.dataset.originalDisplay) {
+                section.dataset.originalDisplay = window.getComputedStyle(section).display;
+            }
+            section.style.display = 'contents';
+        });
+
+        // Collect all cards, compute numbers, sort descending
+        const cards = Array.from(document.querySelectorAll(orderCardSelector));
+        const cardNumbers = cards.map(card => ({
+            element: card,
+            number: getOrderNumber(card)
+        }));
+        cardNumbers.sort((a, b) => b.number - a.number);
+
+        // Apply order values (1 = highest)
+        cardNumbers.forEach((item, index) => {
+            item.element.style.order = index + 1;
+        });
+
+        orderSortEnabled = true;
+        console.log('Order sorting applied');
+    }
+
+    function enableOrderSorting() {
+        if (orderSortEnabled) return;
+        applySorting();
+    }
+
+    function disableOrderSorting() {
+        const parent = document.querySelector('div[data-widget="paginator"] > div');
+        if (parent && originalParentDisplay !== null) {
+            parent.style.display = originalParentDisplay;
+            parent.style.flexDirection = '';
+        }
+
+        // Restore section displays
+        document.querySelectorAll(sectionSelector).forEach(section => {
+            if (section.dataset.originalDisplay) {
+                section.style.display = section.dataset.originalDisplay;
+                delete section.dataset.originalDisplay;
+            } else {
+                // If we never stored it, just reset inline style
+                if (section.style.display === 'contents') {
+                    section.style.display = '';
+                }
+            }
+        });
+
+        // Remove order from all cards
+        document.querySelectorAll(orderCardSelector).forEach(card => {
+            card.style.order = '';
+        });
+
+        orderSortEnabled = false;
+        console.log('Order sorting disabled');
+    }
+
+    function reapplyOrderSorting() {
+        if (!orderSortEnabled) return;
+        applySorting();
+    }
+
+    // ==================== Order list controls ====================
+    function addOrderListControls() {
         if (!isOrderListPage) return;
 
-        console.log('Adding order filter checkbox...');
+        console.log('Adding order list controls...');
 
         const observer = new MutationObserver(() => {
             const paginator = document.querySelector('div[data-widget="paginator"]');
-            if (!paginator || document.querySelector('.order-filter-checkbox')) return;
+            if (!paginator || document.querySelector('.order-list-controls')) return;
 
             observer.disconnect();
 
-            // Create filter checkbox container
+            // Create container
             const container = document.createElement('div');
-            container.className = 'order-filter-container';
+            container.className = 'order-list-controls';
 
-            // Create checkbox label
-            const label = document.createElement('label');
-            label.className = 'ozon-toggle';
-            label.innerHTML = `
+            // Checkbox
+            const checkboxLabel = document.createElement('label');
+            checkboxLabel.className = 'ozon-toggle';
+            checkboxLabel.innerHTML = `
                 <input id="orderFilterCheckbox" type="checkbox" class="order-filter-checkbox">
                 <span class="checkbox-box"></span>
                 <span>Только прибывшие заказы</span>
             `;
+            container.appendChild(checkboxLabel);
 
-            container.appendChild(label);
+            // Sort label
+            const sortLabel = document.createElement('span');
+            sortLabel.className = 'sort-label';
+            sortLabel.textContent = 'Сортировка:';
+            container.appendChild(sortLabel);
+
+            // Dropdown
+            const select = document.createElement('select');
+            select.className = 'order-sort-select';
+            select.id = 'orderSortSelect';
+            select.innerHTML = `
+                <option value="disabled">Отключена</option>
+                <option value="newest">По новизне</option>
+            `;
+            container.appendChild(select);
+
+            // Preload All button
+            const preloadButton = document.createElement('button');
+            preloadButton.className = 'parse-queries-button'; // reuse style
+            preloadButton.textContent = 'Загрузить все';
+            preloadButton.addEventListener('click', preloadAllOrders);
+            container.appendChild(preloadButton);
 
             // Insert container above paginator
             paginator.parentNode.insertBefore(container, paginator);
 
-            // Get checkbox
-            const checkbox = label.querySelector('.order-filter-checkbox');
-
-            // Add event listener
+            const checkbox = checkboxLabel.querySelector('.order-filter-checkbox');
             checkbox.addEventListener('change', function() {
                 isOrderFilterActive = this.checked;
-
                 if (isOrderFilterActive) {
                     hideNonArrivedOrders();
                 } else {
                     restoreHiddenOrders();
                 }
-
+                // After visibility changes, reapply sorting if it's enabled
+                if (orderSortEnabled) {
+                    setTimeout(reapplyOrderSorting, 50);
+                }
                 console.log(`Order filter ${isOrderFilterActive ? 'activated' : 'deactivated'}`);
             });
 
-            // Observer for new orders loaded via AJAX
-            const orderListObserver = new MutationObserver((mutations) => {
-                if (isOrderFilterActive) {
-                    let shouldRefilter = false;
-                    for (const mutation of mutations) {
-                        if (mutation.addedNodes.length > 0) {
-                            for (const node of mutation.addedNodes) {
-                                if (node.nodeType === 1 &&
-                                    (node.matches?.('section[data-widget="orderList"]') ||
-                                     node.querySelector?.('section[data-widget="orderList"]'))) {
-                                    shouldRefilter = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (shouldRefilter) break;
-                    }
-                    if (shouldRefilter) {
-                        setTimeout(hideNonArrivedOrders, 100);
-                    }
+            select.addEventListener('change', function() {
+                if (this.value === 'newest') {
+                    enableOrderSorting();
+                } else {
+                    disableOrderSorting();
                 }
             });
 
-            // Start observing the order list container
-            const orderListContainer = document.querySelector('[data-widget="orderList"]')?.parentElement || document.body;
-            orderListObserver.observe(orderListContainer, {
+            // Observer for new orders
+            const orderListObserver = new MutationObserver((mutations) => {
+                let needsRefilter = false;
+                let needsResort = false;
+
+                for (const mutation of mutations) {
+                    if (mutation.addedNodes.length > 0) {
+                        for (const node of mutation.addedNodes) {
+                            if (node.nodeType === 1) {
+                                if (node.matches?.(sectionSelector) || node.querySelector?.(sectionSelector)) {
+                                    if (isOrderFilterActive) needsRefilter = true;
+                                    if (orderSortEnabled) needsResort = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (needsRefilter) {
+                    setTimeout(hideNonArrivedOrders, 100);
+                }
+                if (needsResort) {
+                    setTimeout(reapplyOrderSorting, 100);
+                }
+            });
+
+            const orderContainer = document.querySelector('div[data-widget="paginator"] > div') || document.body;
+            orderListObserver.observe(orderContainer, {
                 childList: true,
                 subtree: true
             });
         });
 
-        // Start observing when body is available
         if (document.body) {
             observer.observe(document.body, { childList: true, subtree: true });
         } else {
@@ -302,6 +456,88 @@
                 observer.observe(document.body, { childList: true, subtree: true });
             });
         }
+    }
+
+    // Preload all orders by repeatedly hiding sections to trigger loading
+    let isPreloading = false;
+    function preloadAllOrders() {
+        if (isPreloading) return;
+        isPreloading = true;
+
+        console.log('Order preload started...')
+
+        const button = this;
+        const originalText = button.textContent;
+        button.textContent = '⏳ Загрузка...';
+        button.disabled = true;
+
+        const container = document.querySelector('div[data-widget="paginator"] > div');
+        if (!container) {
+            console.warn('Order container not found, aborting preload');
+            button.textContent = originalText;
+            button.disabled = false;
+            isPreloading = false;
+            return;
+        }
+
+        // Set to store hidden sections for later restoration
+        const hiddenSections = new Set();
+
+        // Mutation observer to hide newly added sections
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.addedNodes.length > 0) {
+                    for (const node of mutation.addedNodes) {
+                        if (node.nodeType === 1 && node.matches && node.matches(sectionSelector)) {
+                            // Hide new section immediately
+                            node.style.display = 'none';
+                            hiddenSections.add(node);
+                        }
+                    }
+                }
+            }
+            checkCompletion();
+        });
+
+        // Start observing
+        observer.observe(container, { childList: true, subtree: false });
+
+        // Hide all existing sections
+        const existingSections = container.querySelectorAll(sectionSelector);
+        existingSections.forEach(section => {
+            section.style.display = 'none';
+            hiddenSections.add(section);
+        });
+
+        // Function to check if loading is complete
+        let timeoutId;
+        function checkCompletion() {
+            // Clear previous timeout
+            if (timeoutId) clearTimeout(timeoutId);
+
+            // Set a new timeout: if no mutations for 2 seconds, assume done
+            timeoutId = setTimeout(() => {
+                // Stop observer
+                observer.disconnect();
+
+                // Restore all hidden sections
+                hiddenSections.forEach(section => {
+					if (!section.hasAttribute('data-section-hidden-by-filter')) {
+						section.style.display = ''; // Remove inline style
+					}
+                });
+                hiddenSections.clear();
+
+                // Reset button
+                button.textContent = originalText;
+                button.disabled = false;
+                isPreloading = false;
+                console.log('Preload finished: all orders loaded');
+            }, 2000);
+        }
+
+        // Trigger initial check (in case no mutations happen)
+        checkCompletion();
     }
 
     // Function to handle "По всем категориям" checkbox action
@@ -335,8 +571,6 @@
             // Update URL
             currentUrl.search = currentParams.toString();
 
-            // If we're on search page and removed the parameters, we might want to go back to category page
-            // But the requirement says just remove parameters, so we'll stay on current page
             window.location.href = currentUrl.toString();
         }
     }
@@ -473,7 +707,6 @@
         originalMethods.appendChild = Node.prototype.appendChild;
         Node.prototype.appendChild = function(newChild) {
             if (shouldFilterElement(newChild)) {
-                //console.log('🚫 Filtered product in appendChild');
                 // Create empty comment instead of removing
                 const comment = document.createComment('Filtered product with low/no bonus points');
                 return originalMethods.appendChild.call(this, comment);
@@ -485,7 +718,6 @@
         originalMethods.insertBefore = Node.prototype.insertBefore;
         Node.prototype.insertBefore = function(newChild, refChild) {
             if (shouldFilterElement(newChild)) {
-                //console.log('🚫 Filtered product in insertBefore');
                 // Create empty comment instead
                 const comment = document.createComment('Filtered product with low/no bonus points');
                 return originalMethods.insertBefore.call(this, comment, refChild);
@@ -521,7 +753,6 @@
                         });
 
                         if (filteredCount > 0) {
-                            //console.log(`🚫 Filtered ${filteredCount} products in innerHTML`);
                             html = tempDiv.innerHTML;
                         }
                     }
@@ -557,7 +788,6 @@
                 });
 
                 if (filteredCount > 0) {
-                    //console.log(`🚫 Filtered ${filteredCount} products in insertAdjacentHTML`);
                     html = tempDiv.innerHTML;
                 }
             }
@@ -873,9 +1103,9 @@
         // Add global styles
         addGlobalStyles();
 
-        // Always add order filter checkbox if on order list page
+        // Add order list controls if on order list page
         if (isOrderListPage) {
-            setTimeout(addOrderFilterCheckbox, 1000);
+            setTimeout(addOrderListControls, 1000);
         }
 
         // Check if reviews filter is active

@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.1
+// @version      3.2
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -539,8 +539,12 @@
                 button.disabled = false;
                 isPreloading = false;
 
-                setTimeout(hideNonArrivedOrders, 100);
-                setTimeout(reapplyOrderSorting, 100);
+                if (isOrderFilterActive) {
+                    setTimeout(hideNonArrivedOrders, 100);
+                }
+                if (orderSortEnabled) {
+                    setTimeout(reapplyOrderSorting, 100);
+                }
 
                 console.log('Preload finished: all orders loaded');
             }, 2000);

@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.0
+// @version      3.1
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -32,6 +32,9 @@
 
     // Flag to track if order filter is active
     let isOrderFilterActive = false;
+
+    // Is order preload active
+    let isPreloading = false;
 
     // Store original methods
     const originalMethods = {
@@ -418,6 +421,10 @@
 
             // Observer for new orders
             const orderListObserver = new MutationObserver((mutations) => {
+                if (isPreloading) {
+                    return;
+                }
+
                 let needsRefilter = false;
                 let needsResort = false;
 
@@ -459,7 +466,6 @@
     }
 
     // Preload all orders by repeatedly hiding sections to trigger loading
-    let isPreloading = false;
     function preloadAllOrders() {
         if (isPreloading) return;
         isPreloading = true;
@@ -532,6 +538,10 @@
                 button.textContent = originalText;
                 button.disabled = false;
                 isPreloading = false;
+
+                setTimeout(hideNonArrivedOrders, 100);
+                setTimeout(reapplyOrderSorting, 100);
+
                 console.log('Preload finished: all orders loaded');
             }, 2000);
         }

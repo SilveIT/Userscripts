@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      2.2
+// @version      2.3
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -26,9 +26,6 @@
     // CSS styles
     const STYLES = {
         orderListPoints: `
-            position: absolute;
-            top: 60%;
-            left: 2%;
             background: rgba(0, 0, 0, 0.8);
             color: white;
             padding: 8px 16px;
@@ -38,6 +35,7 @@
             pointer-events: none;
             text-align: center;
             min-width: 100px;
+            margin-top: 10px;
         `,
         orderDetailsWrapper: `
             display: unset;
@@ -344,8 +342,11 @@
                     if (getComputedStyle(orderDiv).position === 'static') {
                         orderDiv.style.position = 'relative';
                     }
-
-                    orderDiv.appendChild(pointsElement);
+                    let appendTarget = orderDiv.querySelector('div');
+                    if (!appendTarget) {
+                        appendTarget = orderDiv;
+                    }
+                    appendTarget.appendChild(pointsElement);
                 }
 
                 orderDiv.dataset.promoProcessed = 'true';

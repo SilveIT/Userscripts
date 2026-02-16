@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      2.3
+// @version      2.4
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -297,11 +297,14 @@
      * @param {string} style - CSS style string
      * @returns {HTMLElement} Points element
      */
-    function createPointsElement(points, style) {
+    function createPointsElement(points, style, additionalText) {
         const element = document.createElement('div');
         element.style.cssText = style;
         element.setAttribute('data-promo-points', 'true');
         element.textContent = `${points} баллов`;
+        if (additionalText) {
+            element.textContent += additionalText;
+        }
         return element;
     }
 
@@ -328,16 +331,22 @@
                 if (orderDiv.dataset.promoProcessed === 'true') return;
 
                 let totalPoints = 0;
+                let totalOrders = 0;
+                let totalOrdersWithPoints = 0;
 
                 orderDiv.querySelectorAll('img').forEach(img => {
                     totalPoints += getPointsForImage(img);
+                    totalOrders++;
+                    if (totalPoints > 0) {
+                        totalOrdersWithPoints++;
+                    }
                 });
 
                 if (totalPoints > 0) {
                     // Remove existing points elements
                     orderDiv.querySelectorAll('[data-promo-points]').forEach(el => el.remove());
 
-                    const pointsElement = createPointsElement(totalPoints, STYLES.orderListPoints);
+                    const pointsElement = createPointsElement(totalPoints, STYLES.orderListPoints, totalOrders > 1 ? ` (${totalOrdersWithPoints} из ${totalOrders})` : null);
 
                     if (getComputedStyle(orderDiv).position === 'static') {
                         orderDiv.style.position = 'relative';

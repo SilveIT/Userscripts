@@ -1,14 +1,14 @@
 // ==UserScript==
-// @name         Ozon Search Optimizer
+// @name         Ozon Optimizer
 // @namespace    http://tampermonkey.net/
 // @version      1.0
-// @description  Removes shelf.userHistory and shelf.infiniteScroll widgets from search page responses on ozon.ru
+// @description  Removes excessive elements from pages
 // @author       Silve & Deepseek
 // @match        https://www.ozon.ru/search/*
 // @run-at       document-start
 // @homepageURL  https://github.com/SilveIT/Userscripts
-// @updateURL    https://github.com/SilveIT/Userscripts/raw/refs/heads/main/OzonSearchOptimizer.user.js
-// @downloadURL  https://github.com/SilveIT/Userscripts/raw/refs/heads/main/OzonSearchOptimizer.user.js
+// @updateURL    https://github.com/SilveIT/Userscripts/raw/refs/heads/main/OzonOptimizer.user.js
+// @downloadURL  https://github.com/SilveIT/Userscripts/raw/refs/heads/main/OzonOptimizer.user.js
 // @grant        none
 // ==/UserScript==
 

@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         Ozon Optimizer
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Removes excessive elements from pages
 // @author       Silve & Deepseek
 // @match        https://www.ozon.ru/search/*
+// @match        https://www.ozon.ru/category/*
 // @run-at       document-start
 // @homepageURL  https://github.com/SilveIT/Userscripts
 // @updateURL    https://github.com/SilveIT/Userscripts/raw/refs/heads/main/OzonOptimizer.user.js
@@ -22,7 +23,8 @@
         const url = request.url;
 
         // Check if this is the target API call
-        if (url.startsWith('https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url=%2Fsearch')) {
+        if (url.startsWith('https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url=%2Fsearch') ||
+            url.startsWith('https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url=%2Fcategory')) {
             try {
                 const response = await originalFetch.apply(this, args);
                 const clonedResponse = response.clone();

@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.2
+// @version      3.3
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -14,6 +14,31 @@
 
 (function() {
     'use strict';
+
+        // === EARLY CHECK: close empty search tabs opened with OFT ===
+    if (window.location.hash.substring(1) === 'oft') {
+        const checkAndClose = () => {
+            const headline = document.querySelector(".tsHeadline800XxLarge");
+            if (headline && headline.innerText.trim().startsWith("По этим фильтрам")) {
+                window.close();
+            }
+        };
+        console.log(document.readyState)
+        // If DOM is already interactive, try now
+        if (document.readyState !== 'loading') {
+            checkAndClose();
+        } else {
+            // Otherwise watch for the element to appear
+            const observer = new MutationObserver((mutations, obs) => {
+                if (document.readyState !== 'complete') {
+                    checkAndClose();
+                } else {
+                    obs.disconnect();
+                }
+            });
+            observer.observe(document.documentElement, { childList: true, subtree: true });
+        }
+    }
 
     // Configuration for query parsing
     const QUERY_SEPARATORS = ['\r\n', '\n', ';', '; '];
@@ -655,6 +680,7 @@
 
                 // Replace text parameter with current query
                 searchUrl.searchParams.set('text', query);
+                searchUrl.hash = 'oft';
 
                 // Open in new tab
                 window.open(searchUrl.toString(), '_blank');

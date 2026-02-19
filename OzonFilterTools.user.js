@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.3
+// @version      3.4
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -289,42 +289,44 @@
 
     // Core function to apply sorting styles and order values
     function applySorting() {
-        const parent = document.querySelector('div[data-widget="paginator"] > div');
-        if (!parent) return;
+        if (!isPreloading) {
+            const parent = document.querySelector('div[data-widget="paginator"] > div');
+            if (!parent) return;
 
-        // Ensure parent is a flex container
-        if (originalParentDisplay === null) {
-            originalParentDisplay = window.getComputedStyle(parent).display;
+            // Ensure parent is a flex container
+            if (originalParentDisplay === null) {
+                originalParentDisplay = window.getComputedStyle(parent).display;
+            }
+            parent.style.display = 'flex';
+            parent.style.flexDirection = 'column';
+
+            // Process each section: only make visible sections "contents"
+            document.querySelectorAll(sectionSelector).forEach(section => {
+                // Skip if section is hidden by filter
+                if (section.dataset.sectionHiddenByFilter === 'true' || section.style.display === 'none') {
+                    return;
+                }
+
+                // Store original display if not already stored
+                if (!section.dataset.originalDisplay) {
+                    section.dataset.originalDisplay = window.getComputedStyle(section).display;
+                }
+                section.style.display = 'contents';
+            });
+
+            // Collect all cards, compute numbers, sort descending
+            const cards = Array.from(document.querySelectorAll(orderCardSelector));
+            const cardNumbers = cards.map(card => ({
+                element: card,
+                number: getOrderNumber(card)
+            }));
+            cardNumbers.sort((a, b) => b.number - a.number);
+
+            // Apply order values (1 = highest)
+            cardNumbers.forEach((item, index) => {
+                item.element.style.order = index + 1;
+            });
         }
-        parent.style.display = 'flex';
-        parent.style.flexDirection = 'column';
-
-        // Process each section: only make visible sections "contents"
-        document.querySelectorAll(sectionSelector).forEach(section => {
-            // Skip if section is hidden by filter
-            if (section.dataset.sectionHiddenByFilter === 'true' || section.style.display === 'none') {
-                return;
-            }
-
-            // Store original display if not already stored
-            if (!section.dataset.originalDisplay) {
-                section.dataset.originalDisplay = window.getComputedStyle(section).display;
-            }
-            section.style.display = 'contents';
-        });
-
-        // Collect all cards, compute numbers, sort descending
-        const cards = Array.from(document.querySelectorAll(orderCardSelector));
-        const cardNumbers = cards.map(card => ({
-            element: card,
-            number: getOrderNumber(card)
-        }));
-        cardNumbers.sort((a, b) => b.number - a.number);
-
-        // Apply order values (1 = highest)
-        cardNumbers.forEach((item, index) => {
-            item.element.style.order = index + 1;
-        });
 
         orderSortEnabled = true;
         console.log('Order sorting applied');
@@ -424,14 +426,16 @@
             const checkbox = checkboxLabel.querySelector('.order-filter-checkbox');
             checkbox.addEventListener('change', function() {
                 isOrderFilterActive = this.checked;
-                if (isOrderFilterActive) {
-                    hideNonArrivedOrders();
-                } else {
-                    restoreHiddenOrders();
-                }
-                // After visibility changes, reapply sorting if it's enabled
-                if (orderSortEnabled) {
-                    setTimeout(reapplyOrderSorting, 50);
+                if (!isPreloading) {
+                    if (isOrderFilterActive) {
+                        hideNonArrivedOrders();
+                    } else {
+                        restoreHiddenOrders();
+                    }
+                    // After visibility changes, reapply sorting if it's enabled
+                    if (orderSortEnabled) {
+                        setTimeout(reapplyOrderSorting, 50);
+                    }
                 }
                 console.log(`Order filter ${isOrderFilterActive ? 'activated' : 'deactivated'}`);
             });
@@ -446,9 +450,7 @@
 
             // Observer for new orders
             const orderListObserver = new MutationObserver((mutations) => {
-                if (isPreloading) {
-                    return;
-                }
+                if (isPreloading) return;
 
                 let needsRefilter = false;
                 let needsResort = false;

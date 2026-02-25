@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      2.4
+// @version      2.5
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -576,7 +576,7 @@
             setTimeout(processPromoPage, CONFIG.initialLoadDelay);
         } else {
             // On order pages, load promo data first
-            for (let i = 0; i < 3; i++) {
+            for (let i = 0; i < 15; i++) {
                 let loaded = await loadPromoProducts();
                 if (loaded) {
                     console.log(`Promo page loaded with ${i + 1} tries.`)

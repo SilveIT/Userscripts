@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      2.5
+// @version      2.6
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -335,9 +335,10 @@
                 let totalOrdersWithPoints = 0;
 
                 orderDiv.querySelectorAll('img').forEach(img => {
-                    totalPoints += getPointsForImage(img);
+                    let imagePoints = getPointsForImage(img);
+                    totalPoints += imagePoints;
                     totalOrders++;
-                    if (totalPoints > 0) {
+                    if (imagePoints > 0) {
                         totalOrdersWithPoints++;
                     }
                 });

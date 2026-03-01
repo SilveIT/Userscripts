@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      3.1
+// @version      3.2
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page – with order‑level verification.
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -460,6 +460,7 @@
                     pointsElement.style.color = 'red';
                 }
                 button.style.display = 'none';
+                if (actualPoints > 0) pointsElement.style.display = 'block';
             } catch (error) {
                 console.error('Verification failed', error);
                 button.textContent = 'Error';
@@ -495,44 +496,43 @@
                     }
                 });
 
-                if (totalPoints > 0) {
-                    // Remove any old points elements (should not exist, but clean up)
-                    orderDiv.querySelectorAll('[data-promo-points]').forEach(el => el.remove());
+                // Remove any old points elements (should not exist, but clean up)
+                orderDiv.querySelectorAll('[data-promo-points]').forEach(el => el.remove());
 
-                    const pointsElement = createPointsElement(
-                        totalPoints,
-                        STYLES.orderListPoints,
-                        totalOrders > 1 ? ` (${totalOrdersWithPoints} из ${totalOrders})` : null
-                    );
-                    pointsElement.dataset.originalPoints = totalPoints; // store for comparison
+                const pointsElement = createPointsElement(
+                    totalPoints,
+                    STYLES.orderListPoints,
+                    totalOrders > 1 ? ` (${totalOrdersWithPoints} из ${totalOrders})` : null
+                );
+                pointsElement.dataset.originalPoints = totalPoints; // store for comparison
+                if (totalPoints <= 0) pointsElement.style.display = 'none';
 
-                    // Get order URL for verification
-                    const orderUrl = getOrderUrl(orderDiv);
-                    if (!orderUrl) {
-                        console.warn('Could not find order URL for verification');
-                        // Still show points without button
-                        let appendTarget = orderDiv.querySelector('div');
-                        if (!appendTarget) appendTarget = orderDiv;
-                        appendTarget.appendChild(pointsElement);
-                        orderDiv.dataset.promoProcessed = 'true';
-                        return;
-                    }
-
-                    // Create wrapper and button
-                    const wrapper = document.createElement('div');
-                    wrapper.style.cssText = STYLES.orderListWrapper;
-                    wrapper.setAttribute('data-order-verify-wrapper', 'true');
-
-                    const verifyButton = createVerifyButton(orderDiv, pointsElement, orderUrl, totalPoints);
-
-                    wrapper.appendChild(pointsElement);
-                    wrapper.appendChild(verifyButton);
-
-                    // Append wrapper to appropriate target
+                // Get order URL for verification
+                const orderUrl = getOrderUrl(orderDiv);
+                if (!orderUrl) {
+                    console.warn('Could not find order URL for verification');
+                    // Still show points without button
                     let appendTarget = orderDiv.querySelector('div');
                     if (!appendTarget) appendTarget = orderDiv;
-                    appendTarget.appendChild(wrapper);
+                    appendTarget.appendChild(pointsElement);
+                    orderDiv.dataset.promoProcessed = 'true';
+                    return;
                 }
+
+                // Create wrapper and button
+                const wrapper = document.createElement('div');
+                wrapper.style.cssText = STYLES.orderListWrapper;
+                wrapper.setAttribute('data-order-verify-wrapper', 'true');
+
+                const verifyButton = createVerifyButton(orderDiv, pointsElement, orderUrl, totalPoints);
+
+                wrapper.appendChild(pointsElement);
+                wrapper.appendChild(verifyButton);
+
+                // Append wrapper to appropriate target
+                let appendTarget = orderDiv.querySelector('div');
+                if (!appendTarget) appendTarget = orderDiv;
+                appendTarget.appendChild(wrapper);
 
                 orderDiv.dataset.promoProcessed = 'true';
             });

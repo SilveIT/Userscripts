@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ozon Optimizer
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Removes excessive elements from pages
 // @author       Silve & Deepseek
 // @match        https://www.ozon.ru/search/*
@@ -65,6 +65,14 @@
                 console.error('[Ozon Optimizer] Error while processing search response:', error);
                 return originalFetch.apply(this, args);
             }
+        }
+        else if (url.startsWith('https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url=https%3A%2F%2Fozon.ru%2Fnotification%2Fcookies_acceptance')) {
+            const modifiedResponse = new Response('{}', {
+                status: 200,
+                statusText: "OK"
+            });
+            console.log('[Ozon Optimizer] Successfully blocked cookie request.');
+            return modifiedResponse;
         }
 
         // Not the target URL – pass through

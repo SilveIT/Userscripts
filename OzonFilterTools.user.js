@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.4
+// @version      3.5
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -20,7 +20,7 @@
         const checkAndClose = () => {
             const headline = document.querySelector(".tsHeadline800XxLarge");
             if (headline && headline.innerText.trim().startsWith("По этим фильтрам")) {
-                window.close();
+                //window.close();
             }
         };
         console.log(document.readyState)
@@ -629,63 +629,137 @@
             normalizedText = normalizedText.split(separator).join('|');
         }
 
-        // Split by the common separator and filter out empty entries
+        // Split by the common separator and process each line
         return normalizedText.split('|')
-            .map(query => query.trim())
-            .filter(query => query.length > 0 && !/^\s+$/.test(query));
+            .map(line => line.trim())
+            .filter(line => line.length > 0 && !/^\s+$/.test(line))
+            .map(line => {
+            // Check if the line is a full URL
+            if (line.startsWith('http://') || line.startsWith('https://')) {
+                try {
+                    const url = new URL(line);
+
+                    // Extract refresh from hash if present
+                    let refresh = null;
+                    const hashParts = url.hash.substring(1).split(',');
+                    for (const part of hashParts) {
+                        const match = part.match(/^refresh=(\d+)$/);
+                        if (match) {
+                            const refreshValue = parseInt(match[1], 10);
+                            if (refreshValue > 0) refresh = refreshValue;
+                            break;
+                        }
+                    }
+
+                    // Remove any existing OFT-related hash? We'll rebuild it later.
+                    // For now, just return the full URL object and extracted refresh.
+                    return {
+                        type: 'url',
+                        originalUrl: url,
+                        refresh: refresh
+                    };
+                } catch (e) {
+                    console.warn('Invalid URL:', line, e);
+                    // If URL parsing fails, treat it as a plain query
+                    return processPlainLine(line);
+                }
+            } else {
+                return processPlainLine(line);
+            }
+        });
+
+        // Helper function to process plain query lines (same as before)
+        function processPlainLine(query) {
+            let refresh = null;
+            let baseQuery = query;
+            const refreshMatch = query.match(/#refresh=(\d+)$/);
+            if (refreshMatch) {
+                const refreshValue = parseInt(refreshMatch[1], 10);
+                if (refreshValue > 0) {
+                    refresh = refreshValue;
+                    baseQuery = query.substring(0, refreshMatch.index);
+                }
+            }
+            return {
+                type: 'query',
+                text: baseQuery,
+                refresh: refresh
+            };
+        }
     }
 
     // Function to handle parsing queries from clipboard
     async function handleParseQueriesFromClipboard() {
         try {
-            // Read text from clipboard
             const clipboardText = await navigator.clipboard.readText();
-
             if (!clipboardText) {
                 alert('Не обнаружено скопированного текста.');
                 return;
             }
 
-            // Parse queries
             const queries = parseQueriesFromClipboard(clipboardText);
-
             if (queries.length === 0) {
                 alert('Не обнаружено правильных запросов.\n' +
                       'Запросы должны быть разделены на строки или через \';\'.');
                 return;
             }
 
-            // Confirm with user
+            // Prepare confirmation message
+            const confirmLines = queries.slice(0, 5).map((q, i) => {
+                if (q.type === 'url') {
+                    // Show shortened URL for confirmation
+                    const urlStr = q.originalUrl.toString();
+                    const display = urlStr.length > 60 ? urlStr.substring(0, 57) + '...' : urlStr;
+                    return `${i + 1}. ${display}${q.refresh ? ` [refresh=${q.refresh}]` : ''}`;
+                } else {
+                    let display = q.text;
+                    if (q.refresh) display += ` [refresh=${q.refresh}]`;
+                    return `${i + 1}. ${display}`;
+                }
+            }).join('\n');
+
             const shouldProceed = confirm(
-                `Найдено ${queries.length} запросов:\n\n` +
-                queries.slice(0, 5).map((q, i) => `${i + 1}. ${q}`).join('\n') +
+                `Найдено ${queries.length} запросов/URL:\n\n` +
+                confirmLines +
                 (queries.length > 5 ? `\n... и ${queries.length - 5} ещё` : '') +
                 '\n\nОткрыть в новых вкладках?'
             );
 
-            if (!shouldProceed) {
-                return;
-            }
+            if (!shouldProceed) return;
 
-            // Get current URL parameters
             const currentUrl = new URL(window.location.href);
             const currentParams = new URLSearchParams(currentUrl.search);
 
-            // For each query, open a new tab
-            for (const query of queries) {
-                const searchUrl = new URL('https://www.ozon.ru/search/');
+            for (const item of queries) {
+                let targetUrl;
 
-                // Copy all current parameters
-                for (const [key, value] of currentParams.entries()) {
-                    searchUrl.searchParams.append(key, value);
+                if (item.type === 'url') {
+                    // Start with the original URL's origin and path
+                    targetUrl = new URL(item.originalUrl.origin + item.originalUrl.pathname);
+
+                    // Copy all search parameters from the original URL
+                    for (const [key, value] of item.originalUrl.searchParams.entries()) {
+                        targetUrl.searchParams.append(key, value);
+                    }
+                } else {
+                    // For plain queries, build a new search URL
+                    targetUrl = new URL('https://www.ozon.ru/search/');
+
+                    for (const [key, value] of currentParams.entries()) {
+                        targetUrl.searchParams.append(key, value);
+                    }
+
+                    targetUrl.searchParams.set('text', item.text);
                 }
 
-                // Replace text parameter with current query
-                searchUrl.searchParams.set('text', query);
-                searchUrl.hash = 'oft';
+                // Set the hash according to refresh value
+                if (item.refresh && item.refresh > 0) {
+                    targetUrl.hash = `oft,refresh=${item.refresh}`;
+                } else {
+                    targetUrl.hash = 'oft';
+                }
 
-                // Open in new tab
-                window.open(searchUrl.toString(), '_blank');
+                window.open(targetUrl.toString(), '_blank');
             }
         } catch (error) {
             console.error('Error reading clipboard:', error);

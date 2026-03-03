@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      3.2
+// @version      3.3
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page – with order‑level verification.
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -239,15 +239,29 @@
                 let points = 0;
                 let isPending = false;
 
+                // Extract points from rewards array (multiple rewards)
                 if (product.rewards && product.rewards.length > 0) {
                     const lastReward = product.rewards[product.rewards.length - 1];
                     const rewardText = lastReward.title?.text || '';
                     points = parsePromoPoints(rewardText);
                     isPending = true;
-                } else if (product.receivedReward) {
+                }
+                // Extract points from receivedReward (already earned or pending)
+                else if (product.receivedReward) {
                     const rewardText = product.receivedReward.text?.text || product.receivedReward.text || '';
                     points = parsePromoPoints(rewardText);
                     isPending = rewardText.includes('Начислим');
+                }
+                // Extract points from maxPointsLabel (e.g., "До 400 баллов за подробный отзыв")
+                else if (product.maxPointsLabel) {
+                    const textRs = product.maxPointsLabel.textRs || [];
+                    let rewardText = '';
+                    textRs.forEach(item => {
+                        if (item.type === 'text') {
+                            rewardText += item.content;
+                        }
+                    });
+                    points = parsePromoPoints(rewardText);
                 }
 
                 if (points > 0) {

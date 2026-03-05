@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      3.3
+// @version      3.4
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page – with order‑level verification.
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -271,8 +271,6 @@
                         imageName: filename,
                         maxReward: points
                     };
-                    byFilename.set(filename, productInfo);
-                    byId.set(product.itemId, points);
 
                     totalPoints += points;
                     productCount++;
@@ -288,6 +286,11 @@
                             pendingPoints += points;
                             pendingCount++;
                         }
+                    }
+                    else
+                    {
+                        byFilename.set(filename, productInfo);
+                        byId.set(product.itemId, points);
                     }
                 }
             });

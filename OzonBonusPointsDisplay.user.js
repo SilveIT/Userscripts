@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      3.4
-// @description  Display promo bonus points from reviews on order pages and calculate totals on promo page – with order‑level verification.
+// @version      3.5
+// @description  Display promo bonus points from reviews on order pages and calculate totals on promo page – with order‑level verification and Vue hydration resilience for order details.
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
 // @match        *://www.ozon.ru/my/orderdetails/?order=*
@@ -23,7 +23,7 @@
         processCooldown: 100
     };
 
-    // CSS styles (updated with wrapper style)
+    // CSS styles (unchanged)
     const STYLES = {
         orderListPoints: `
             background: rgba(0, 0, 0, 0.8);
@@ -112,8 +112,15 @@
         hasPendingReviews: false
     };
 
-    // Track processed sections on promo page
+    // Track processed sections on promo page (for initial run)
     const processedSections = new Set();
+    // For MutationObserver on promo page
+    let promoPageWidget = null;
+    let promoPageSectionTotals = []; // array of { totalPoints, productCount, pendingPoints, pendingCount }
+    let promoPageObserver = null;
+
+    // For MutationObserver on order details page
+    let orderDetailsObserver = null;
 
     /**
      * Extract filename from URL
@@ -149,7 +156,7 @@
         }
 
         const existingNotice = layoutPage.querySelector('[data-pending-reviews-notice]');
-        if (existingNotice) existingNotice.remove();
+        if (existingNotice) return;
 
         const noticeLink = document.createElement('a');
         noticeLink.href = 'https://www.ozon.ru/my/reviews/promo';
@@ -323,7 +330,7 @@
 
             const jsonText = node.getAttribute('data-state');
             const jsonData = JSON.parse(jsonText);
-            const { byFilename, byId, pendingReviewsData: pending } = parsePromoData(jsonData);
+            const { byFilename, byId, sectionTotals, pendingReviewsData: pending } = parsePromoData(jsonData);
 
             promoProductsByFilename = byFilename;
             promoProductsById = byId;
@@ -560,6 +567,9 @@
         }
     }
 
+    /**
+     * Process order details page – add points badges to product images
+     */
     function processOrderDetails() {
         if (isProcessingOrderDetails) return;
         isProcessingOrderDetails = true;
@@ -593,7 +603,6 @@
                                 item.sellers.forEach(seller => {
                                     if (seller.products && Array.isArray(seller.products)) {
                                         seller.products.forEach(product => {
-                                            //const cartItemId = product.itemId ?? '1';
                                             const productId = product.title?.common?.action?.id;
                                             if (productId) {
                                                 productArray.push(productId);
@@ -623,6 +632,7 @@
                 for (let i = 0; i < imgs.length; i++) {
                     const img = imgs[i];
 
+                    // Skip if already processed (clone inside wrapper will have this flag)
                     if (img.dataset.promoPointsAdded === 'true') continue;
 
                     const productId = productArray[i];
@@ -640,6 +650,8 @@
                     wrapper.style.cssText = STYLES.orderDetailsWrapper;
 
                     const imgClone = img.cloneNode(true);
+                    // Mark the clone as processed so we don't re-wrap it later
+                    imgClone.dataset.promoPointsAdded = 'true';
 
                     wrapper.appendChild(imgClone);
                     wrapper.appendChild(pointsElement);
@@ -648,7 +660,7 @@
                         img.parentNode.replaceChild(wrapper, img);
                     }
 
-                    img.dataset.promoPointsAdded = 'true';
+                    // The original img is removed; the clone now carries the flag
                 }
             });
         } catch (error) {
@@ -658,6 +670,71 @@
                 isProcessingOrderDetails = false;
             }, CONFIG.processCooldown);
         }
+    }
+
+    // --- MutationObserver for order details page ---
+    function setupOrderDetailsObserver() {
+        if (orderDetailsObserver) return; // already set up
+
+        let timeout = null;
+        orderDetailsObserver = new MutationObserver(() => {
+            // Debounce to avoid rapid-fire calls
+            if (timeout) clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                // Only run if we are not already processing
+                if (!isProcessingOrderDetails) {
+                    processOrderDetails();
+                }
+                timeout = null;
+            }, CONFIG.observerDebounceDelay);
+        });
+
+        // Observe the whole body; we could narrow it down, but this is safe.
+        orderDetailsObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
+    // --- Promo page functions (unchanged, but included for completeness) ---
+    function addTotalSpanToSection(section, sectionData) {
+        if (!sectionData) return;
+        const headline = section.querySelector('span.tsHeadline600Medium');
+        if (!headline) return;
+        if (headline.querySelector('[data-promo-total]')) return;
+
+        let text = `Всего: ${sectionData.totalPoints}Б (${sectionData.productCount} шт.)`;
+        if (sectionData.pendingCount > 0) {
+            text += ` Начислят: ${sectionData.pendingPoints}Б (${sectionData.pendingCount} шт.)`;
+        }
+
+        const totalSpan = document.createElement('span');
+        totalSpan.style.cssText = STYLES.promoPageTotal;
+        totalSpan.textContent = text;
+        totalSpan.setAttribute('data-promo-total', 'true');
+
+        headline.appendChild(totalSpan);
+        console.log(`Total span added/restored for section: ${text}`);
+    }
+
+    function setupPromoPageObserver() {
+        if (!promoPageWidget || promoPageObserver) return;
+
+        let timeout = null;
+        promoPageObserver = new MutationObserver(() => {
+            if (timeout) clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                const sections = promoPageWidget.querySelectorAll('section');
+                sections.forEach((section, index) => {
+                    if (!section.querySelector('[data-promo-total]')) {
+                        const sectionData = promoPageSectionTotals[index];
+                        if (sectionData) {
+                            addTotalSpanToSection(section, sectionData);
+                        }
+                    }
+                });
+                timeout = null;
+            }, CONFIG.observerDebounceDelay);
+        });
+
+        promoPageObserver.observe(promoPageWidget, { childList: true, subtree: true });
     }
 
     function processPromoPage() {
@@ -684,40 +761,22 @@
             return;
         }
 
+        promoPageWidget = widget;
+        promoPageSectionTotals = sectionTotals;
+
         const sections = widget.querySelectorAll('section');
         console.log(`Found ${sections.length} sections on promo page`);
 
         sections.forEach((section, index) => {
             if (processedSections.has(section)) return;
-
-            const headline = section.querySelector('span.tsHeadline600Medium');
-            if (!headline) {
-                console.log(`No headline found in section ${index}`);
-                return;
-            }
-
-            const total = sectionTotals[index];
-            if (!total) return;
-
-            let text = `Всего: ${total.totalPoints}Б (${total.productCount} шт.)`;
-            if (total.pendingCount > 0) {
-                text += ` Начислят: ${total.pendingPoints}Б (${total.pendingCount} шт.)`;
-            }
-
-            const totalSpan = document.createElement('span');
-            totalSpan.style.cssText = STYLES.promoPageTotal;
-            totalSpan.textContent = text;
-            totalSpan.setAttribute('data-promo-total', 'true');
-
-            if (!headline.querySelector('[data-promo-total]')) {
-                headline.appendChild(totalSpan);
-            }
-
+            addTotalSpanToSection(section, sectionTotals[index]);
             processedSections.add(section);
-            console.log(`Section ${index} processed: ${text}`);
         });
+
+        setupPromoPageObserver();
     }
 
+    // --- Observers for order list and layout page ---
     function setupOrderListObserver() {
         const observer = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
@@ -773,7 +832,8 @@
                 processOrderList();
                 setupOrderListObserver();
             } else if (path.includes('/my/orderdetails/')) {
-                setTimeout(processOrderDetails, CONFIG.initialLoadDelay);
+                processOrderDetails();
+                setupOrderDetailsObserver();
             }
         }
     }

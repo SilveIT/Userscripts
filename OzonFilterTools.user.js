@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.5
+// @version      3.6
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -1021,7 +1021,6 @@
             wrapper.style.gap = '10px';
 
             targetDiv.parentNode.style['min-width'] = '100%';
-            targetDiv.parentNode.style['margin-bottom'] = '0px';
             targetDiv.parentNode.insertBefore(wrapper, targetDiv);
             wrapper.appendChild(targetDiv);
             wrapper.appendChild(buttons);

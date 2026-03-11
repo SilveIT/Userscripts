@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      3.5
+// @version      3.6
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page – with order‑level verification and Vue hydration resilience for order details.
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -117,6 +117,7 @@
     // For MutationObserver on promo page
     let promoPageWidget = null;
     let promoPageSectionTotals = []; // array of { totalPoints, productCount, pendingPoints, pendingCount }
+    let promoProductsBySection = []; // array of arrays, each inner array contains product objects per section
     let promoPageObserver = null;
 
     // For MutationObserver on order details page
@@ -217,6 +218,7 @@
         const byFilename = new Map();
         const byId = new Map();
         const sectionTotals = [];
+        const sectionProducts = [];
         const pendingData = {
             productCount: 0,
             totalPoints: 0,
@@ -229,6 +231,8 @@
             let productCount = 0;
             let pendingPoints = 0;
             let pendingCount = 0;
+
+            const productsInSection = [];
 
             (section.products || []).forEach(product => {
                 const imageUrl = product.image?.image?.image;
@@ -299,13 +303,22 @@
                         byFilename.set(filename, productInfo);
                         byId.set(product.itemId, points);
                     }
+
+                    productsInSection.push({
+                        itemId: product.itemId,
+                        name: name,
+                        imageName: filename,
+                        points: points,
+                        pending: isPending
+                    });
                 }
             });
 
             sectionTotals[index] = { totalPoints, productCount, pendingPoints, pendingCount };
+            sectionProducts[index] = productsInSection;
         });
 
-        return { byFilename, byId, sectionTotals, pendingReviewsData: pendingData };
+        return { byFilename, byId, sectionTotals, pendingReviewsData: pendingData, sectionProducts };
     }
 
     async function loadPromoProducts() {
@@ -330,12 +343,13 @@
 
             const jsonText = node.getAttribute('data-state');
             const jsonData = JSON.parse(jsonText);
-            const { byFilename, byId, sectionTotals, pendingReviewsData: pending } = parsePromoData(jsonData);
+            const { byFilename, byId, sectionTotals, pendingReviewsData: pending, sectionProducts } = parsePromoData(jsonData);
 
             promoProductsByFilename = byFilename;
             promoProductsById = byId;
             pendingReviewsData = pending;
             promoDataLoaded = true;
+            promoProductsBySection = sectionProducts;
 
             console.log(`Loaded ${promoProductsByFilename.size} promo products`);
             if (pendingReviewsData.hasPendingReviews) {
@@ -753,7 +767,7 @@
 
         const jsonText = node.getAttribute('data-state');
         const jsonData = JSON.parse(jsonText);
-        const { sectionTotals } = parsePromoData(jsonData);
+        const { sectionTotals, sectionProducts } = parsePromoData(jsonData);
 
         const widget = document.querySelector('[data-widget="webPromoReviewProducts"]');
         if (!widget) {
@@ -763,6 +777,7 @@
 
         promoPageWidget = widget;
         promoPageSectionTotals = sectionTotals;
+        promoProductsBySection = sectionProducts;
 
         const sections = widget.querySelectorAll('section');
         console.log(`Found ${sections.length} sections on promo page`);
@@ -837,6 +852,22 @@
             }
         }
     }
+
+    // Expose internal data to other userscripts via window.OZON_BONUS_POINTS
+    if (!window.OZON_BONUS_POINTS) {
+        window.OZON_BONUS_POINTS = {};
+    }
+
+    Object.defineProperties(window.OZON_BONUS_POINTS, {
+        promoProductsByFilename: { get: () => promoProductsByFilename, configurable: true, enumerable: true },
+        promoProductsById:       { get: () => promoProductsById, configurable: true, enumerable: true },
+        promoDataLoaded:         { get: () => promoDataLoaded, configurable: true, enumerable: true },
+        isProcessingOrderDetails: { get: () => isProcessingOrderDetails, configurable: true, enumerable: true },
+        pendingReviewsData:      { get: () => pendingReviewsData, configurable: true, enumerable: true },
+        promoPageWidget:         { get: () => promoPageWidget, configurable: true, enumerable: true },
+        promoPageSectionTotals:  { get: () => promoPageSectionTotals, configurable: true, enumerable: true },
+        promoProductsBySection:  { get: () => promoProductsBySection, configurable: true, enumerable: true }
+    });
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

@@ -1,11 +1,10 @@
 // ==UserScript==
 // @name         Ozon Optimizer
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.3
 // @description  Removes excessive elements from pages
 // @author       Silve & Deepseek
-// @match        https://www.ozon.ru/search/*
-// @match        https://www.ozon.ru/category/*
+// @match        https://www.ozon.ru/*
 // @run-at       document-start
 // @homepageURL  https://github.com/SilveIT/Userscripts
 // @updateURL    https://github.com/SilveIT/Userscripts/raw/refs/heads/main/OzonOptimizer.user.js
@@ -22,7 +21,7 @@
         const request = args[0] instanceof Request ? args[0] : new Request(...args);
         const url = request.url;
 
-        // Check if this is the target API call
+        // SEARCH / CATEGORY – remove shelf.userHistory & shelf.infiniteScroll
         if (url.startsWith('https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url=%2Fsearch') ||
             url.startsWith('https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url=%2Fcategory')) {
             try {
@@ -66,16 +65,38 @@
                 return originalFetch.apply(this, args);
             }
         }
-        else if (url.startsWith('https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url=https%3A%2F%2Fozon.ru%2Fnotification%2Fcookies_acceptance')) {
-            const modifiedResponse = new Response('{}', {
-                status: 200,
-                statusText: "OK"
-            });
-            console.log('[Ozon Optimizer] Successfully blocked cookie request.');
-            return modifiedResponse;
+
+        // BLOCK RECOMMENDATIONS
+        if (url.includes('url=%2Fmy%2Forderdetails%2F') || url.includes('layout_container%3Drecommendations') || url.includes('lk_pagination_recoms')) {
+            try {
+                const modifiedResponse = new Response("{}", {
+                    status: 200,
+                    statusText: "OK"
+                });
+                console.log('[Ozon Optimizer] Successfully blocked recomendations request.');
+                return modifiedResponse;
+            } catch (error) {
+                console.error('[Ozon Optimizer] Error while blocking recomendations request:', error);
+                return originalFetch.apply(this, args);
+            }
         }
 
-        // Not the target URL – pass through
+        // BLOCK COOKIE NOTIFICATION
+        if (url.startsWith('https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url=https%3A%2F%2Fozon.ru%2Fnotification%2Fcookies_acceptance')) {
+            try {
+                const modifiedResponse = new Response('{}', {
+                    status: 200,
+                    statusText: "OK"
+                });
+                console.log('[Ozon Optimizer] Successfully blocked cookie request.');
+                return modifiedResponse;
+            } catch (error) {
+                console.error('[Ozon Optimizer] Error while blocking cookie request: ', error);
+                return originalFetch.apply(this, args);
+            }
+        }
+
+        // Not a target URL – pass through
         return originalFetch.apply(this, args);
     };
 })();

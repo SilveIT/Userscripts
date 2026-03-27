@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ozon Optimizer
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.4
 // @description  Removes excessive elements from pages
 // @author       Silve & Deepseek
 // @match        https://www.ozon.ru/*
@@ -32,13 +32,13 @@
                 let modified = false;
                 if (data && Array.isArray(data.layout)) {
                     data.layout.forEach(item => {
-                        if (item.component === 'island' && Array.isArray(item.placeholders)) {
+                        if ((item.component === 'island' || item.component === 'row') && Array.isArray(item.placeholders)) {
                             item.placeholders.forEach(placeholder => {
                                 if (placeholder && Array.isArray(placeholder.widgets)) {
                                     const originalLength = placeholder.widgets.length;
                                     placeholder.widgets = placeholder.widgets.filter(widget => {
                                         const widgetName = widget.name || '';
-                                        return widgetName !== 'shelf.userHistory' && widgetName !== 'shelf.infiniteScroll';
+                                        return widgetName !== 'shelf.userHistory' && widgetName !== 'shelf.infiniteScroll' && Object.values(widget).includes('search.history');
                                     });
                                     if (placeholder.widgets.length !== originalLength) {
                                         modified = true;
@@ -66,8 +66,8 @@
             }
         }
 
-        // BLOCK RECOMMENDATIONS
-        if (url.includes('url=%2Fmy%2Forderdetails%2F') || url.includes('layout_container%3Drecommendations') || url.includes('lk_pagination_recoms')) {
+        // BLOCK RECOMMENDATIONS AND SEARCH HISTORY
+        if (url.includes('url=%2Fmy%2Forderdetails%2F') || url.includes('url=%2Fhighlight%2F') || url.includes('layout_container%3Drecommendations') || url.includes('lk_pagination_recoms')) {
             try {
                 const modifiedResponse = new Response("{}", {
                     status: 200,

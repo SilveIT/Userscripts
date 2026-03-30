@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.7
+// @version      3.8
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -859,7 +859,7 @@
                         tempDiv.innerHTML = html;
 
                         // Find all product elements
-                        const products = tempDiv.querySelectorAll('[data-widget^="tile"] > .tile-root');
+                        const products = tempDiv.querySelectorAll('[data-widget^="tile"] .tile-root');
                         let filteredCount = 0;
 
                         products.forEach(product => {
@@ -894,7 +894,7 @@
                 tempDiv.innerHTML = html;
 
                 // Find all product elements
-                const products = tempDiv.querySelectorAll('[data-widget^="tile"] > .tile-root');
+                const products = tempDiv.querySelectorAll('[data-widget^="tile"] .tile-root');
                 let filteredCount = 0;
 
                 products.forEach(product => {
@@ -1106,7 +1106,7 @@
     function filterExistingProducts() {
         if (!isFilterActive || !isFilterablePage) return;
 
-        const products = document.querySelectorAll('[data-widget^="tile"] > .tile-root');
+        const products = document.querySelectorAll('[data-widget^="tile"] .tile-root');
         let filteredCount = 0;
 
         products.forEach(product => {

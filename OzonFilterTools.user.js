@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.8
+// @version      3.9
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -326,6 +326,8 @@
             // Apply order values (1 = highest)
             cardNumbers.forEach((item, index) => {
                 item.element.style.order = index + 1;
+                // Hide cancelled orders
+                if (item.element.textContent.toLowerCase().includes('отменён')) item.element.style.display = 'none';
             });
         }
 

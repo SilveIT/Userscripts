@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.9
+// @version      3.10
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -782,7 +782,7 @@
         for (const el of bonusElements) {
             const title = el.getAttribute('title');
             if (title && title.includes('баллов за отзыв')) {
-                const match = title.match(/(\d+)\s*баллов за отзыв/);
+                const match = title.replace(' ', '').match(/(\d+)\s*баллов за отзыв/);
                 if (match && match[1]) {
                     return parseInt(match[1], 10);
                 }
@@ -791,7 +791,7 @@
 
         // Check text content
         if (element.textContent && element.textContent.includes('баллов за отзыв')) {
-            const match = element.textContent.match(/(\d+)\s*баллов за отзыв/);
+            const match = element.textContent.replace(' ', '').match(/(\d+)\s*баллов за отзыв/);
             if (match && match[1]) {
                 return parseInt(match[1], 10);
             }
@@ -1143,7 +1143,7 @@
             if (!node || node.classList.contains('highlighted-bonus')) continue;
 
             const text = node.textContent.trim();
-            const match = text.match(/(\d+)\s*баллов за отзыв/i);
+            const match = text.replace(' ', '').match(/(\d+)\s*баллов за отзыв/i);
             if (match) {
                 const points = parseInt(match[1], 10);
 

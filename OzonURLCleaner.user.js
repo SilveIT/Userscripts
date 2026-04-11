@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Ozon URL Cleaner
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Removes weird parameters
+// @version      1.1
+// @description  Removes tracking parameters (at, _bctx) from Ozon URLs
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @grant        none
@@ -15,34 +15,38 @@
 (function() {
     'use strict';
 
+    const TRACKING_PARAMS = ['at', '_bctx'];
+
     /**
-     * Removes the 'at' parameter from a given URL string.
+     * Removes specified tracking parameters from a URL.
      * @param {string} url - The original URL (absolute or relative).
-     * @returns {string} The cleaned URL without the 'at' parameter.
+     * @returns {string} Cleaned URL without tracking parameters.
      */
-    function removeAtParam(url) {
+    function cleanUrl(url) {
         if (!url) return url;
         try {
-            // Resolve relative URLs against the current page
             const urlObj = new URL(url, window.location.href);
-            if (urlObj.searchParams.has('at')) {
-                urlObj.searchParams.delete('at');
-                return urlObj.toString();
+            let changed = false;
+            for (const param of TRACKING_PARAMS) {
+                if (urlObj.searchParams.has(param)) {
+                    urlObj.searchParams.delete(param);
+                    changed = true;
+                }
             }
-        } catch (e) {
-            // Invalid URL – return unchanged
+            return changed ? urlObj.toString() : url;
+        } catch {
+            return url;
         }
-        return url;
     }
 
     /**
-     * Processes a single anchor element: removes 'at' from its href.
+     * Cleans a single anchor element's href if needed.
      * @param {HTMLAnchorElement} link - The anchor element.
-     * @returns {boolean} True if the href was changed.
+     * @returns {boolean} True if href was changed.
      */
-    function processLink(link) {
+    function cleanLink(link) {
         if (!link.href) return false;
-        const cleaned = removeAtParam(link.href);
+        const cleaned = cleanUrl(link.href);
         if (cleaned !== link.href) {
             link.href = cleaned;
             return true;
@@ -51,59 +55,41 @@
     }
 
     /**
-     * Cleans the current page URL if it contains 'at='.
+     * Cleans the current page URL if it contains any tracking parameters.
      */
-    function fixCurrentUrl() {
-        if (window.location.search.includes('at=')) {
-            const cleaned = removeAtParam(window.location.href);
-            if (cleaned !== window.location.href) {
-                history.replaceState(null, '', cleaned);
-            }
+    function cleanCurrentUrl() {
+        const cleaned = cleanUrl(window.location.href);
+        if (cleaned !== window.location.href) {
+            history.replaceState(null, '', cleaned);
         }
     }
 
-    // Clean the current URL immediately (runs at document-start)
-    fixCurrentUrl();
+    // Clean the URL immediately (runs at document-start)
+    cleanCurrentUrl();
 
-    // Wait for DOM to be ready before scanning existing links and setting up observers
     function init() {
         // Clean all existing links
-        const links = document.querySelectorAll('a[href]');
-        for (const link of links) {
-            processLink(link);
-        }
+        document.querySelectorAll('a[href]').forEach(cleanLink);
 
-        // MutationObserver to handle both new links and href changes
-        const observer = new MutationObserver((mutations) => {
+        // Watch for dynamically added links or href changes
+        const observer = new MutationObserver(mutations => {
             for (const mutation of mutations) {
                 if (mutation.type === 'childList') {
-                    // New nodes added to the DOM
                     for (const node of mutation.addedNodes) {
                         if (node.nodeType === Node.ELEMENT_NODE) {
-                            // If the added node is an anchor, process it
-                            if (node.tagName === 'A' && node.href) {
-                                processLink(node);
-                            }
-                            // If it contains links, process all of them
+                            if (node.tagName === 'A' && node.href) cleanLink(node);
                             if (node.querySelectorAll) {
-                                const nestedLinks = node.querySelectorAll('a[href]');
-                                for (const link of nestedLinks) {
-                                    processLink(link);
-                                }
+                                node.querySelectorAll('a[href]').forEach(cleanLink);
                             }
                         }
                     }
                 } else if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
-                    // An existing element had its href attribute changed
                     const target = mutation.target;
-                    if (target.tagName === 'A' && target.href) {
-                        processLink(target);
-                    }
+                    if (target.tagName === 'A' && target.href) cleanLink(target);
                 }
             }
         });
 
-        // Observe the whole document for new links and href changes
         observer.observe(document.body, {
             childList: true,
             subtree: true,

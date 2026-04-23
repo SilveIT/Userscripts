@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.10
+// @version      3.11
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -281,11 +281,10 @@
 
     // Extract numeric order number from an order card
     function getOrderNumber(card) {
-        const titleEl = card.querySelector('.tsBodyControl300XSmall[title]');
-        if (!titleEl) return 0;
-        const text = titleEl.innerText || '';
-        const digits = text.replace(/\D/g, '');
-        return parseInt(digits, 10) || 0;
+        const j = card.querySelector('a').href.split('-');
+        if (j.length > 0)
+            return parseInt(j[j.length - 1], 10) || 0;
+        return 0;
     }
 
     // Core function to apply sorting styles and order values

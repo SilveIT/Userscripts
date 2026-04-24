@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ozon URL Cleaner
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Removes tracking parameters (at, _bctx) from Ozon URLs
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
@@ -15,7 +15,7 @@
 (function() {
     'use strict';
 
-    const TRACKING_PARAMS = ['at', '_bctx'];
+    const TRACKING_PARAMS = ['at', '_bctx', 'hs'];
 
     /**
      * Removes specified tracking parameters from a URL.

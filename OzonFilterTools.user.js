@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.11
+// @version      3.12
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -48,6 +48,7 @@
         window.location.pathname.includes('/search/') ||
         window.location.pathname.includes('/category/') ||
         window.location.pathname.includes('/seller/') ||
+        window.location.pathname.includes('/brand/') ||
         window.location.pathname.includes('/highlight/');
 
     // Check if we're on the order list page

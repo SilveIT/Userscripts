@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
-// @description  Advanced Ozon filters + order list sorting + preload all orders button
-// @version      3.12
+// @description  Advanced Ozon filters and order utilities
+// @version      3.13
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -223,6 +223,41 @@
                 color: #333;
                 font-family: 'Onest', arial, sans-serif;
             }
+
+            /* Order number element styles */
+            .order-number-element {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                background: rgba(255,255,255,0.95);
+                padding: 4px 8px;
+                border-radius: 16px;
+                font-size: 12px;
+                font-weight: bold;
+                font-family: 'Onest', monospace;
+                cursor: pointer;
+                z-index: 5;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+                transition: all 0.2s ease;
+                backdrop-filter: blur(2px);
+                border: 1px solid rgba(0,0,0,0.05);
+                color: #667685;
+            }
+            .order-number-element:hover {
+                background: #f0f0f0;
+                transform: scale(1.02);
+            }
+            .order-number-element.copy-animation {
+                animation: blinkGreen 0.4s ease-in-out 2;
+                background: #00c853 !important;
+                color: white !important;
+                border-color: #00c853;
+            }
+            @keyframes blinkGreen {
+                0% { background-color: rgba(0,200,83,0.2); transform: scale(1); }
+                50% { background-color: #00c853; transform: scale(1.08); color: white; }
+                100% { background-color: rgba(0,200,83,0.2); transform: scale(1); }
+            }
         `;
         document.head.appendChild(style);
     }
@@ -374,6 +409,56 @@
         applySorting();
     }
 
+    // ==================== Order number display and copy ====================
+    function addOrderNumberToCard(card) {
+        // Avoid duplicate
+        if (card.querySelector('.order-number-element')) return;
+
+        const orderNumber = getOrderNumber(card);
+        if (!orderNumber) return;
+
+        const orderNumDiv = document.createElement('div');
+        orderNumDiv.className = 'order-number-element';
+        orderNumDiv.textContent = `№ ${orderNumber}`;
+        orderNumDiv.title = 'Нажмите, чтобы скопировать номер заказа';
+
+        // Click handler: copy to clipboard with animation
+        orderNumDiv.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            try {
+                await navigator.clipboard.writeText(orderNumber.toString());
+                // Animate: blink green and add checkmark
+                orderNumDiv.classList.add('copy-animation');
+                const originalText = orderNumDiv.textContent;
+                orderNumDiv.textContent = `✓ ${orderNumber}`;
+                setTimeout(() => {
+                    orderNumDiv.classList.remove('copy-animation');
+                    orderNumDiv.textContent = originalText;
+                }, 800);
+            } catch (err) {
+                console.error('Copy failed:', err);
+                // Fallback visual feedback
+                orderNumDiv.style.background = '#ff4444';
+                setTimeout(() => {
+                    orderNumDiv.style.background = '';
+                }, 300);
+            }
+        });
+
+        // Ensure card has relative positioning for absolute positioning of the number element
+        if (getComputedStyle(card).position === 'static') {
+            card.style.position = 'relative';
+        }
+        card.appendChild(orderNumDiv);
+    }
+
+    function addOrderNumbersToCards() {
+        if (!isOrderListPage) return;
+        const cards = document.querySelectorAll(orderCardSelector);
+        cards.forEach(card => addOrderNumberToCard(card));
+    }
+
     // ==================== Order list controls ====================
     function addOrderListControls() {
         if (!isOrderListPage) return;
@@ -439,6 +524,8 @@
                     if (orderSortEnabled) {
                         setTimeout(reapplyOrderSorting, 50);
                     }
+                    // Ensure order numbers are present on visible cards
+                    setTimeout(addOrderNumbersToCards, 100);
                 }
                 console.log(`Order filter ${isOrderFilterActive ? 'activated' : 'deactivated'}`);
             });
@@ -449,9 +536,11 @@
                 } else {
                     disableOrderSorting();
                 }
+                // After sorting change, ensure order numbers are still there
+                setTimeout(addOrderNumbersToCards, 100);
             });
 
-            // Observer for new orders
+            // Observer for new orders (to add order numbers, refilter, resort)
             const orderListObserver = new MutationObserver((mutations) => {
                 if (isPreloading) return;
 
@@ -472,10 +561,20 @@
                 }
 
                 if (needsRefilter) {
-                    setTimeout(hideNonArrivedOrders, 100);
+                    setTimeout(() => {
+                        hideNonArrivedOrders();
+                        addOrderNumbersToCards();
+                    }, 100);
                 }
                 if (needsResort) {
-                    setTimeout(reapplyOrderSorting, 100);
+                    setTimeout(() => {
+                        reapplyOrderSorting();
+                        addOrderNumbersToCards();
+                    }, 100);
+                }
+                // If no filter or sort needed but new cards added, still add order numbers
+                if (!needsRefilter && !needsResort) {
+                    setTimeout(addOrderNumbersToCards, 100);
                 }
             });
 
@@ -484,6 +583,9 @@
                 childList: true,
                 subtree: true
             });
+
+            // Initial addition of order numbers to existing cards
+            setTimeout(addOrderNumbersToCards, 500);
         });
 
         if (document.body) {
@@ -558,9 +660,9 @@
 
                 // Restore all hidden sections
                 hiddenSections.forEach(section => {
-					if (!section.hasAttribute('data-section-hidden-by-filter')) {
-						section.style.display = ''; // Remove inline style
-					}
+                    if (!section.hasAttribute('data-section-hidden-by-filter')) {
+                        section.style.display = ''; // Remove inline style
+                    }
                 });
                 hiddenSections.clear();
 
@@ -575,6 +677,8 @@
                 if (orderSortEnabled) {
                     setTimeout(reapplyOrderSorting, 100);
                 }
+                // Add order numbers after preload completes
+                setTimeout(addOrderNumbersToCards, 150);
 
                 console.log('Preload finished: all orders loaded');
             }, 2000);

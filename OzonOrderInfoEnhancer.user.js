@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ozon Order Info Enhancer
 // @namespace    http://tampermonkey.net/
-// @version      1.9
+// @version      1.10
 // @description  Enhances order info page by improving tracking info
 // @author       Silve & Deepseek
 // @match        https://www.ozon.ru/my/orderdetails/?order=*
@@ -871,7 +871,7 @@
 
         init() {
             this.setupMutationObserver();
-            this.processPage();
+            setTimeout(() => this.processPage(), 1000);
             this.setupCleanup();
         }
 
@@ -950,9 +950,9 @@
     // Wait for DOM to be ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => new OzonOrderEnhancer().init(), 1000);
+            new OzonOrderEnhancer().init();
         });
     } else {
-        setTimeout(() => new OzonOrderEnhancer().init(), 1000);
+        new OzonOrderEnhancer().init();
     }
 })();

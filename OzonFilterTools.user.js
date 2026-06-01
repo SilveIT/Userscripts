@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters and order utilities
-// @version      3.13
+// @version      3.14
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -15,7 +15,10 @@
 (function() {
     'use strict';
 
-        // === EARLY CHECK: close empty search tabs opened with OFT ===
+    const BASIC_AMOUNT_OF_POINTS = 250;
+    const ORDER_NUMBER_ENABLED = false;
+
+    // === EARLY CHECK: close empty search tabs opened with OFT ===
     if (window.location.hash.substring(1) === 'oft') {
         const checkAndClose = () => {
             const headline = document.querySelector(".tsHeadline800XxLarge");
@@ -454,6 +457,7 @@
     }
 
     function addOrderNumbersToCards() {
+        if (!ORDER_NUMBER_ENABLED) return;
         if (!isOrderListPage) return;
         const cards = document.querySelectorAll(orderCardSelector);
         cards.forEach(card => addOrderNumberToCard(card));
@@ -916,8 +920,8 @@
         // Get bonus points
         const bonusPoints = getBonusPointsFromElement(element);
 
-        // Filter if ≤200 points or no points found
-        return bonusPoints === null || bonusPoints <= 200;
+        // Filter if basic amount of points or no points found
+        return bonusPoints === null || bonusPoints <= BASIC_AMOUNT_OF_POINTS;
     }
 
     // Function to patch DOM methods (only on search/category pages)
@@ -1102,7 +1106,7 @@
                     <label class="ozon-toggle">
                         <input type="checkbox" class="dom-filter-checkbox">
                         <span class="checkbox-box"></span>
-                        <span>Скрыть ≤200 баллов</span>
+                        <span>Скрыть ≤` + BASIC_AMOUNT_OF_POINTS + ` баллов</span>
                     </label>
 
                     <label class="ozon-toggle">
@@ -1217,7 +1221,7 @@
 
         products.forEach(product => {
             const bonusPoints = getBonusPointsFromElement(product);
-            if (bonusPoints === null || bonusPoints <= 200) {
+            if (bonusPoints === null || bonusPoints <= BASIC_AMOUNT_OF_POINTS) {
                 // Hide the product
                 product.style.display = 'none';
                 product.setAttribute('data-filtered-by-bonus', 'true');
@@ -1251,7 +1255,7 @@
             if (match) {
                 const points = parseInt(match[1], 10);
 
-                if (points > 200) {
+                if (points > BASIC_AMOUNT_OF_POINTS) {
                     node.style.color = 'deeppink';
                     node.style.textEmphasis = '"❤️"';
                     node.style.fontWeight = 'bold';

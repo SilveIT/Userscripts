@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ozon Optimizer
 // @namespace    http://tampermonkey.net/
-// @version      1.5
+// @version      1.6
 // @description  Removes excessive elements from pages
 // @author       Silve & Deepseek
 // @match        https://www.ozon.ru/*
@@ -80,7 +80,7 @@
                     status: 200,
                     statusText: "OK"
                 });
-                console.log('[Ozon Optimizer] Successfully blocked unwanted request.');
+                console.log('[Ozon Optimizer] Successfully blocked unwanted request (' + url + ').');
                 return modifiedResponse;
             } catch (error) {
                 console.error('[Ozon Optimizer] Error while blocking unwanted request:', error);
@@ -105,7 +105,7 @@
                                     const originalLength = placeholder.widgets.length;
                                     placeholder.widgets = placeholder.widgets.filter(widget => {
                                         const widgetName = widget.name || '';
-                                        return widgetName !== 'shelf.userHistory' && widgetName !== 'shelf.infiniteScroll' && Object.values(widget).includes('search.history');
+                                        return widgetName !== 'shelf.userHistory' && widgetName !== 'shelf.infiniteScroll' && (!HEAVY_OPTIMIZATION || !Object.values(widget).includes('search.history'));
                                     });
                                     if (placeholder.widgets.length !== originalLength) {
                                         modified = true;

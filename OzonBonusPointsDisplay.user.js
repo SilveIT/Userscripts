@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      3.6
+// @version      3.7
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page – with order‑level verification and Vue hydration resilience for order details.
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -185,34 +185,6 @@
         }
     }
 
-    /**
-     * Process a product div and extract promo data
-     * @param {Element} div - Product div element
-     * @param {boolean} isPendingSection - Whether this is from the pending reviews section
-     */
-    function processProductDiv(div, isPendingSection = false) {
-        const img = div.querySelector('img');
-        if (!img?.src) return null;
-
-        const filename = extractFilename(img.src);
-        if (!filename) return null;
-
-        const spans = div.querySelectorAll('span.tsBody400Small, span.tsCompact400Small');
-        if (spans.length === 0) return null;
-
-        const lastSpan = spans[spans.length - 1];
-        const points = parsePromoPoints(lastSpan.textContent.trim());
-
-        if (points > 0) {
-            if (isPendingSection) {
-                pendingReviewsData.productCount++;
-                pendingReviewsData.totalPoints += points;
-            }
-            return { filename, points };
-        }
-        return null;
-    }
-
     function parsePromoData(jsonData) {
         const sections = jsonData.productSections || [];
         const byFilename = new Map();
@@ -273,6 +245,12 @@
                         }
                     });
                     points = parsePromoPoints(rewardText);
+                    isPending = true;
+                }
+                else if (product.sendReviewButton) {
+                    const buttonTitle = product.sendReviewButton.title?.text || product.sendReviewButton.title || '';
+                    points = parsePromoPoints(buttonTitle);
+                    isPending = true;
                 }
 
                 if (points > 0) {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      3.7
+// @version      3.8
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page – with order‑level verification and Vue hydration resilience for order details.
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -70,7 +70,7 @@
             padding: 1px 4px;
             border-radius: 4px;
             font-weight: bold;
-            font-size: 12px;
+            font-size: 9px;
             z-index: 1000;
             pointer-events: none;
             min-width: 40px;

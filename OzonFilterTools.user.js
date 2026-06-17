@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters and order utilities
-// @version      3.14
+// @version      3.15
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -16,7 +16,7 @@
     'use strict';
 
     const BASIC_AMOUNT_OF_POINTS = 250;
-    const ORDER_NUMBER_ENABLED = false;
+    const ORDER_NUMBER_ENABLED = true;
 
     // === EARLY CHECK: close empty search tabs opened with OFT ===
     if (window.location.hash.substring(1) === 'oft') {
@@ -320,9 +320,10 @@
 
     // Extract numeric order number from an order card
     function getOrderNumber(card) {
-        const j = card.querySelector('a').href.split('-');
-        if (j.length > 0)
-            return parseInt(j[j.length - 1], 10) || 0;
+        const a = card.querySelector('a');
+        if (!a) return 0;
+        const j = a.href.split('-');
+        if (j.length > 0) return parseInt(j[j.length - 1], 10) || 0;
         return 0;
     }
 

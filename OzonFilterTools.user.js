@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters and order utilities
-// @version      3.15
+// @version      3.16
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -862,6 +862,8 @@
                     }
 
                     targetUrl.searchParams.set('text', item.text);
+                    targetUrl.searchParams.set('category_was_predicted', true);
+                    targetUrl.searchParams.set('deny_category_prediction', true);
                 }
 
                 // Set the hash according to refresh value

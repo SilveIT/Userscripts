@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters and order utilities
-// @version      3.17
+// @version      3.18
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -266,7 +266,7 @@
     }
 
     const sectionSelector = 'section[data-widget="orderList"], div[data-widget="orderList"]';
-    const orderCardSelector = `${sectionSelector} > *`;
+    const orderCardSelector = sectionSelector.split(', ').map(s => `${s} > *`).join(', ');
 
     // Function to check if current page is /search/* page
     function isSearchPage() {

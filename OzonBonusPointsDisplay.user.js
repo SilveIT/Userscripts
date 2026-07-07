@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      3.10
+// @version      3.11
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page – with order‑level verification and Vue hydration resilience for order details.
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -546,9 +546,27 @@
                 wrapper.appendChild(verifyButton);
 
                 // Append wrapper to appropriate target
-                let appendTarget = orderDiv.querySelector('div');
-                if (!appendTarget) appendTarget = orderDiv;
-                appendTarget.appendChild(wrapper);
+                let appendTarget = null;
+                const links = orderDiv.querySelectorAll('a');
+
+                if (links.length === 2) {
+                    // If 2 links - desktop version
+                    appendTarget = orderDiv.querySelector('div') || orderDiv;
+                    appendTarget.appendChild(wrapper);
+                } else if (links.length > 2) {
+                    // If more - probably mobile version
+                    const targetLink = links[2];
+                    appendTarget = targetLink.parentElement?.parentElement?.parentElement;
+
+                    if (appendTarget) {
+                        appendTarget.after(wrapper);
+                    } else {
+                        orderDiv.appendChild(wrapper);
+                    }
+                } else {
+                    appendTarget = orderDiv.querySelector('div') || orderDiv;
+                    appendTarget.appendChild(wrapper);
+                }
 
                 orderDiv.dataset.promoProcessed = 'true';
             });

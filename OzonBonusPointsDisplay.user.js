@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      3.8
+// @version      3.9
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page – with order‑level verification and Vue hydration resilience for order details.
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -493,7 +493,7 @@
         const orderListWidgets = document.querySelectorAll('[data-widget="orderList"]');
 
         orderListWidgets.forEach(orderListWidget => {
-            const orderDivs = orderListWidget.querySelectorAll(':scope > div');
+            const orderDivs = orderListWidget.querySelectorAll(':scope > div, :scope > section');
 
             orderDivs.forEach(orderDiv => {
                 // Skip if already processed with wrapper

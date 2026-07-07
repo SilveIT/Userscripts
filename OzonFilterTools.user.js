@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters and order utilities
-// @version      3.18
+// @version      3.19
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -196,6 +196,7 @@
 
             .order-list-controls {
                 display: flex;
+                flex-wrap: wrap;
                 align-items: center;
                 gap: 15px;
                 margin: 0 0 10px 10px;

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OZON Bonus Points Display
 // @namespace    http://tampermonkey.net/
-// @version      3.11
+// @version      3.12
 // @description  Display promo bonus points from reviews on order pages and calculate totals on promo page – with order‑level verification and Vue hydration resilience for order details.
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/my/orderlist*
@@ -302,11 +302,11 @@
     async function loadPromoProducts() {
         try {
             console.log('Fetching promo products...');
-            const response = await fetch('/my/reviews/promo');
+            const response = await fetch(window.location.origin + '/my/reviews/promo');
             const html = await response.text();
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
-            const xpathResult = document.evaluate(
+            const xpathResult = doc.evaluate(
                 "//div[starts-with(@data-state, '{\"productSections')]",
                 doc,
                 null,

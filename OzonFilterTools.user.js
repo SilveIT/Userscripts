@@ -2,7 +2,7 @@
 // @name         Ozon Filter Tools
 // @namespace    http://tampermonkey.net/
 // @description  Advanced Ozon filters and order utilities
-// @version      3.16
+// @version      3.17
 // @author       Silve & Deepseek
 // @match        *://www.ozon.ru/*
 // @homepageURL  https://github.com/SilveIT/Userscripts
@@ -265,6 +265,9 @@
         document.head.appendChild(style);
     }
 
+    const sectionSelector = 'section[data-widget="orderList"], div[data-widget="orderList"]';
+    const orderCardSelector = `${sectionSelector} > *`;
+
     // Function to check if current page is /search/* page
     function isSearchPage() {
         return window.location.pathname.includes('/search/');
@@ -277,7 +280,7 @@
 
     // Function to hide non-arrived orders
     function hideNonArrivedOrders() {
-        document.querySelectorAll('section[data-widget="orderList"]').forEach(s => {
+        document.querySelectorAll(sectionSelector).forEach(s => {
             const c = [...s.children];
             let anyArrived = false;
             c.forEach(ch => {
@@ -315,8 +318,6 @@
     // ==================== Order list sorting ====================
     let orderSortEnabled = false;
     let originalParentDisplay = null;
-    const sectionSelector = 'section[data-widget="orderList"]';
-    const orderCardSelector = `${sectionSelector} > *`;
 
     // Extract numeric order number from an order card
     function getOrderNumber(card) {
